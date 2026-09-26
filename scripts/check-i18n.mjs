@@ -49,6 +49,14 @@ E.SENSORS.forEach((s) => ['what', 'how', 'ecu', 'typical', 'fail', 'tech', 'name
 E.ACTUATORS.forEach((a) => ['name', 'desc'].forEach((k) => { if (!E.INFO_HR.actuators[a.id]?.[k]) missing.set(`actuator ${a.id}.${k}`, 'info-hr.js'); }));
 E.FAULTS.forEach((f) => ['name', 'hint'].forEach((k) => { if (!E.INFO_HR.faults[f.id]?.[k]) missing.set(`fault ${f.id}.${k}`, 'info-hr.js'); }));
 
+// 2b) lessons carry their own {en, hr} texts
+load('js/lessons.js');
+E.LESSONS.forEach((l) => {
+  const need = (o, what) => { if (o && (!o.en || !o.hr)) missing.set(`lesson ${l.id} ${what}`, 'lessons.js'); };
+  need(l.title, 'title'); need(l.desc, 'desc');
+  l.steps.forEach((st, i) => { need(st.text, `step ${i + 1} text`); if (st.until) { if (!st.wait) missing.set(`lesson ${l.id} step ${i + 1} wait`, 'lessons.js'); need(st.wait, `step ${i + 1} wait`); } });
+});
+
 // 3) static HTML
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 for (const m of html.matchAll(/<(\w+)[^>]*\sdata-i18n(?:-html)?(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g)) {
@@ -59,7 +67,7 @@ for (const m of html.matchAll(/data-i18n-title[^>]*?title="([^"]*)"/g)) note(m[1
 
 // identifiers that the patterns pick up but are never shown: log kinds, edge() flags, series keys
 const ids = 'ok info warn fault running dfco rev onboost injmax misfire kmh map thr o2 o2dn lam lamT stft ltft spk kr pw duty ect iat egt btgt wg'.split(' ');
-const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C']);
+const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons']);
 const list = [...missing].filter(([k]) => !ignore.has(k));
 if (!list.length) console.log('✓ all translation keys covered');
 else { console.log(`${list.length} missing:`); list.forEach(([k, w]) => console.log(`  [${w}] ${k}`)); process.exitCode = 1; }

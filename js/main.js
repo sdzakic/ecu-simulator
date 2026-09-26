@@ -31,6 +31,15 @@
       $('#pauseBtn span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
       this.ui.renderBrain(this.S);
     },
+    // switch engine and keep the header buttons in sync (used by lessons)
+    selectEngine(type) {
+      document.querySelectorAll('#engineSel button').forEach((x) => x.classList.toggle('active', x.dataset.engine === type));
+      this.setEngine(type);
+    },
+    setSpeed(v) {
+      this.speed = v;
+      document.querySelectorAll('#speedSel button').forEach((x) => x.classList.toggle('active', x.dataset.speed === String(v)));
+    },
     togglePause() {
       this.paused = !this.paused;
       const b = $('#pauseBtn');
@@ -59,6 +68,7 @@
   app.trends = new ECU.TrendView($('#trendCanvas'));
   app.diagram = new ECU.DiagramView($('#diagramWrap'), (id) => app.ui.openSensor(id));
   app.ui = new ECU.UI(app);
+  app.lessons = new ECU.Lessons(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
   let last = performance.now();
@@ -95,6 +105,7 @@
     app.cluster.render(S, dt, sweep);
     app.diagram.animate(S, th, dtVis);
     if (!app.paused) app.trends.sample(S, dt);
+    app.lessons.tick(S);
 
     tTrend += dt; tUi += dt; tBrain += dt; tDiag += dt; tNow += dt;
     if (tTrend > 0.05) { tTrend = 0; app.trends.render(S); }

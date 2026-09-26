@@ -273,6 +273,7 @@
       for (const s of sens) {
         const row = document.createElement('div');
         row.className = 'srow' + (s.turboOnly ? ' turbo-only' : '') + (this.selected && this.selected.id === s.id ? ' sel' : '');
+        row.dataset.sid = s.id;
         row.innerHTML = `<span class="led"></span><div><div class="sn"><span class="ab">${s.abbr}</span>${ECU.info('sensors', s, 'name')}</div><div class="sbar"><i></i></div></div><div><div class="sv">—</div><div class="ssig"></div></div>`;
         row.addEventListener('click', () => this.openSensor(s.id));
         box.appendChild(row);
@@ -411,6 +412,18 @@
     // drawer live
     if (this.selected) this.updateDrawer(S, dt);
     return readings;
+  };
+
+  // reflect programmatic state changes (lessons, engine swap) in the controls
+  UI.prototype.syncControls = function () {
+    const S = this.app.S;
+    document.querySelectorAll('#octaneSel button').forEach((b) => b.classList.toggle('active', +b.dataset.o === S.octane));
+    document.querySelectorAll('#ckpSel button').forEach((b) => b.classList.toggle('active', b.dataset.t === S.ckpType));
+    $('#acBtn').classList.toggle('on', !!S.ac);
+    $('#lightsBtn').classList.toggle('on', !!S.lights);
+    for (const f of ECU.FAULTS) this.faultEls[f.id].classList.toggle('on', !!S.faults[f.id]);
+    const pairs = [['#grade', '#gradeVal', S.grade, (v) => `${v} %`], ['#ambient', '#ambVal', S.ambient, (v) => `${v} °C`], ['#boostTgt', '#boostTgtVal', S.boostTarget, (v) => `${(+v).toFixed(2)} bar`]];
+    for (const [sel, valSel, v, fmt] of pairs) { const el = $(sel); el.value = v; $(valSel).textContent = fmt(v); this.setRange(el, v); }
   };
 
   UI.prototype.setRange = function (el, v) {

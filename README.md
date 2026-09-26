@@ -17,6 +17,10 @@ Open `index.html` in a browser. There is no build step and nothing to install. Y
 | Sensors (26) | Value, electrical signal (volts / Hz / Ω) and status for each; click one for a full explanation |
 | Actuators, live data, event log | ECU outputs, 30 s trends, narrated event log and stored DTCs |
 
+## Guided lessons
+
+Click **🎓 Lessons** in the top bar. Each lesson drives the simulator, highlights the relevant panel and explains what's happening, waiting for the right moment before moving on: cold start and sync, closed loop and fuel trims, knock, turbo lag and boost control, decel fuel cut and the rev limiter, and misfire detection. Lessons live in `js/lessons.js` with English and Croatian text side by side.
+
 ## Languages
 
 Croatian is the default; switch with **HR / EN** in the top-right corner (the choice is remembered). English source strings are the translation keys: `js/i18n-hr.js` holds UI strings and `js/info-hr.js` the long sensor/actuator/fault explanations. After changing any text, run `node scripts/check-i18n.mjs` to list strings that still need a Croatian translation.

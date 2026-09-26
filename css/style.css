@@ -412,3 +412,58 @@ body.is-turbo .diag .na-only { display: none; }
 .modal-card b { color: var(--text); }
 
 .foot { color: var(--dim); text-align: center; font-size: 11px; padding: 6px 16px 20px; }
+
+/* ================= LESSONS ================= */
+.lessons-btn { gap: 6px; border-color: rgba(46, 230, 197, .4); }
+.lessons-btn:hover { box-shadow: 0 0 14px rgba(46, 230, 197, .2); }
+.lesson-focus {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+  animation: lessonPulse 1.6s ease-in-out infinite;
+  position: relative; z-index: 2;
+}
+@keyframes lessonPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 230, 197, .35), 0 10px 30px rgba(0, 0, 0, .25); }
+  50% { box-shadow: 0 0 0 8px rgba(46, 230, 197, 0), 0 0 28px rgba(46, 230, 197, .25); }
+}
+.coach {
+  position: fixed; right: 18px; bottom: 18px; z-index: 45; width: min(410px, calc(100vw - 32px));
+  background: linear-gradient(180deg, #13202e, #0d1520); border: 1px solid rgba(46, 230, 197, .45); border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 30px rgba(46, 230, 197, .12);
+  display: none; overflow: hidden;
+}
+.coach.open { display: block; animation: pop .3s ease; }
+.coach-h { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; }
+.coach-badge { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
+.coach-title { flex: 1; font-size: 12.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coach-x { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line2); background: var(--panel2); color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; flex: none; }
+.coach-x:hover { color: var(--text); }
+.coach-prog { height: 3px; background: var(--line); }
+.coach-prog i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.coach-body { padding: 12px 14px 4px; }
+.coach-step { font-size: 10.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.coach-body p { margin: 6px 0 10px; font-size: 13px; line-height: 1.55; color: #d3dfec; }
+.coach-body p b { color: var(--text); }
+.coach-wait { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--warn); background: rgba(255, 192, 67, .08); border: 1px solid rgba(255, 192, 67, .3); padding: 4px 9px; border-radius: 8px; }
+.coach-wait .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); animation: flash 1s steps(1) infinite; }
+.coach-wait.ok { color: var(--ok); background: rgba(62, 224, 122, .08); border-color: rgba(62, 224, 122, .35); }
+.coach-wait.ok .dot { display: none; }
+.coach-f { display: flex; gap: 8px; align-items: center; padding: 10px 14px 12px; }
+.coach.min .coach-body, .coach.min .coach-f { display: none; }
+.lesson-modal { width: min(640px, 100%); }
+.lesson-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.lesson-card {
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; text-align: left; cursor: pointer;
+  padding: 12px 14px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); transition: border-color .2s, transform .1s;
+}
+.lesson-card:hover { border-color: rgba(46, 230, 197, .5); }
+.lesson-card:active { transform: translateY(1px); }
+.lesson-card .ln { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-family: var(--mono); font-weight: 700; color: var(--accent); background: rgba(46, 230, 197, .1); }
+.lesson-card .lt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lesson-card .lt b { font-size: 13px; }
+.lesson-card .lt small { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.lesson-card .lm { font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; }
+.lesson-card .lok { font-style: normal; color: var(--ok); margin-right: 6px; }
+@media (max-width: 860px) {
+  .coach { right: 8px; left: 8px; bottom: 8px; width: auto; }
+  .lessons-btn span[data-i18n] { display: none; }
+}
