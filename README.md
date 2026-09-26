@@ -21,6 +21,12 @@ Open `index.html` in a browser. There is no build step and nothing to install. Y
 
 Click **🎓 Lessons** in the top bar. Each lesson drives the simulator, highlights the relevant panel and explains what's happening, waiting for the right moment before moving on: cold start and sync, closed loop and fuel trims, knock, turbo lag and boost control, decel fuel cut and the rev limiter, and misfire detection. Lessons live in `js/lessons.js` with English and Croatian text side by side.
 
+## Calibration maps
+
+The ECU runs on real lookup tables: **spark advance** and **target λ** (rpm × load), plus **boost target** (rpm × pedal) on the turbo. A white dot tracks the live operating point, and the four cells it interpolates between light up. Drag across cells to select them, then edit with the buttons or the keyboard (+/−, PgUp/PgDn, arrows, Delete). Edits take effect immediately and are saved per engine in the browser. Lessons always run on the stock maps.
+
+The stock tables are generated from the same models the simulated engine obeys (best-torque timing, knock limit, breathing), so a stock ECU is well calibrated. Edits only change what the ECU *asks for*; the physics stays honest. Too much spark advance knocks, a lean full-load λ runs hot, and extra boost costs spark timing.
+
 ## Languages
 
 Croatian is the default; switch with **HR / EN** in the top-right corner (the choice is remembered). English source strings are the translation keys: `js/i18n-hr.js` holds UI strings and `js/info-hr.js` the long sensor/actuator/fault explanations. After changing any text, run `node scripts/check-i18n.mjs` to list strings that still need a Croatian translation.

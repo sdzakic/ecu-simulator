@@ -185,6 +185,18 @@
       <div class="canvas-wrap"><canvas id="scopeCanvas" height="440"></canvas></div>
     </section>
 
+    <!-- ============ CALIBRATION MAPS ============ -->
+    <section class="panel maps">
+      <div class="panel-h">
+        <h2><span data-i18n>Calibration maps</span> <span class="sub" data-i18n>the ECU's lookup tables · white dot = where the engine is running now · click cells to edit</span></h2>
+        <div class="seg small" id="mapTabs"></div>
+      </div>
+      <div class="maps-body">
+        <div class="canvas-wrap"><canvas id="mapCanvas" tabindex="0" height="320" aria-label="Calibration map"></canvas></div>
+        <div class="map-side" id="mapSide"></div>
+      </div>
+    </section>
+
     <!-- ============ DIAGRAM ============ -->
     <section class="panel diagram">
       <div class="panel-h">
@@ -275,6 +287,7 @@
   <script src="js/diagram-view.js"></script>
   <script src="js/trend-view.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/maps-view.js"></script>
   <script src="js/lessons.js"></script>
   <script src="js/main.js"></script>
 </body>

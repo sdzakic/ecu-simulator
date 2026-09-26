@@ -503,7 +503,9 @@
 
     if (S.sync > 0) {
       const kr = Math.max(...S.knockRetard);
-      const parts = [T('base {b}° (MBT {m}°, knock limit {k}°)', { b: S.sparkBase.toFixed(1), m: S.mbtNow.toFixed(1), k: S.klNow.toFixed(1) })];
+      const parts = [S.idleActive
+        ? T('idle base {b}° (MBT − 6°)', { b: S.sparkBase.toFixed(1) })
+        : T('map {m}° {c} (MBT {b}°, knock limit {k}°)', { m: (S.sparkMap || 0).toFixed(1), c: `${S.sparkCorr >= 0 ? '+' : '−'} ${Math.abs(S.sparkCorr || 0).toFixed(1)}° ${T('IAT/ECT')}`, b: S.mbtNow.toFixed(1), k: S.klNow.toFixed(1) })];
       if (Math.abs(S.sparkIdle) > 0.2) parts.push(`${S.sparkIdle > 0 ? '+' : '−'} ${T('idle')} ${Math.abs(S.sparkIdle).toFixed(1)}°`);
       if (S.catHeat < -0.2) parts.push(`− ${T('cat heating')} ${(-S.catHeat).toFixed(1)}°`);
       if (kr > 0.2) parts.push(`− ${T('knock')} <b style="color:var(--bad)">${kr.toFixed(1)}°</b>`);

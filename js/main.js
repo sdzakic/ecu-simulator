@@ -15,6 +15,7 @@
     setEngine(type) {
       const prev = this.S;
       this.S = ECU.createState(type, prev);
+      this.S.cal = this.calFor(type);
       document.body.classList.toggle('is-turbo', type === 'turbo');
       ECU.log(this.S, 'Engine swapped: {label}. {detail}', 'info', {
         label: { k: this.S.E.label },
@@ -30,7 +31,40 @@
       if (sel && sel.type === 's') this.diagram.select(sel.id);
       $('#pauseBtn span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
       this.ui.renderBrain(this.S);
+      this.maps.relabel();
     },
+    // ---------- calibration maps: user-edited per engine, saved in the browser ----------
+    calStore: {},
+    stockMode: false,
+    calFor(type) {
+      if (this.stockMode) return ECU.makeCal(ECU.ENGINES[type]);
+      if (!this.calStore[type]) {
+        const cal = ECU.makeCal(ECU.ENGINES[type]);
+        try {
+          const saved = JSON.parse(localStorage.getItem('ecu-cal-v1') || '{}')[type] || {};
+          for (const k in saved) {
+            const t = cal[k];
+            if (t && saved[k].length === t.z.length && saved[k][0].length === t.z[0].length) t.z = saved[k];
+          }
+        } catch (e) { /* storage unavailable or stale — use stock */ }
+        this.calStore[type] = cal;
+      }
+      return this.calStore[type];
+    },
+    saveCal() {
+      try {
+        const out = {};
+        for (const type in this.calStore) { out[type] = {}; for (const k in this.calStore[type]) out[type][k] = this.calStore[type][k].z; }
+        localStorage.setItem('ecu-cal-v1', JSON.stringify(out));
+      } catch (e) { /* ignore */ }
+    },
+    // lessons run on stock maps so user edits can't change what they demonstrate
+    useStockCal(on) {
+      this.stockMode = on;
+      this.S.cal = this.calFor(this.S.type);
+      this.maps && this.maps.render(this.S, true);
+    },
+
     // switch engine and keep the header buttons in sync (used by lessons)
     selectEngine(type) {
       document.querySelectorAll('#engineSel button').forEach((x) => x.classList.toggle('active', x.dataset.engine === type));
@@ -68,6 +102,8 @@
   app.trends = new ECU.TrendView($('#trendCanvas'));
   app.diagram = new ECU.DiagramView($('#diagramWrap'), (id) => app.ui.openSensor(id));
   app.ui = new ECU.UI(app);
+  app.S.cal = app.calFor(app.S.type);
+  app.maps = new ECU.MapsView(app);
   app.lessons = new ECU.Lessons(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
@@ -112,6 +148,7 @@
     if (tUi > 0.066) { tUi = 0; app.ui.update(S, bulb, 0.066); }
     if (tDiag > 0.12 && app.ui.readings) { tDiag = 0; app.diagram.updateValues(app.ui.readings); }
     if (tBrain > 0.2) { tBrain = 0; app.ui.renderBrain(S); }
+    app.maps.render(S);
     if (tNow > 0.1) {
       tNow = 0;
       $('#nowBox').innerHTML = app.engine.describe(S, th);

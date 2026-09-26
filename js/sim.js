@@ -61,15 +61,71 @@
     if (E.turbo) a -= 6 * Math.max(0, load - 1);
     return a;
   }
+  // physical knock-limited advance (the real engine, not the ECU's map)
+  function klPure(E, rpm, load, octane, iat, ect) {
+    // −30°/100 % load up to atmospheric filling, flatter above (boosted charge is intercooled)
+    let kl = 46 - 30 * Math.min(load, 1) - 17 * Math.max(0, load - 1) + (octane - 95) * 2.2 + E.klOffset;
+    kl -= Math.max(0, iat - 25) * 0.2;
+    kl -= Math.max(0, ect - 95) * 0.4;
+    if (rpm < 2500) kl -= ((2500 - rpm) / 2500) * 6 * Math.min(load, 1.5);
+    return kl;
+  }
   function knockLimit(S, octane, load, cylBias) {
-    const E = S.E;
-    let kl = 46 - 30 * load + (octane - 95) * 2.2 + E.klOffset;
-    kl -= Math.max(0, S.iat - 25) * 0.2;
-    kl -= Math.max(0, S.ect - 95) * 0.4;
-    if (S.rpm < 2500) kl -= ((2500 - S.rpm) / 2500) * 6 * Math.min(load, 1.5);
-    return kl + (cylBias || 0);
+    return klPure(S.E, S.rpm, load, octane, S.iat, S.ect) + (cylBias || 0);
   }
   ECU.mbt = mbt;
+  ECU.knockLimitAt = klPure;
+
+  /* ---------- Calibration maps (the ECU's lookup tables) ----------
+     Stock values are generated from the same models the engine obeys, so a stock ECU is well
+     calibrated. Users can edit them; the physics (MBT, knock limit, breathing) stays untouched. */
+  const AX = {
+    rpm: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000],
+    loadNA: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110],
+    loadT: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200],
+    pedal: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  };
+  ECU.CAL_AXES = AX;
+  const r1 = (v, st) => Math.round(v / st) * st;
+  function table(x, y, fn, step) {
+    const z = y.map((yv) => x.map((xv) => r1(fn(xv, yv), step)));
+    return { x, y, z, base: z.map((row) => row.slice()) };
+  }
+  function makeCal(E) {
+    const load = E.turbo ? AX.loadT : AX.loadNA;
+    const cal = {
+      // spark advance (°BTDC) at reference conditions: 25 °C intake, 90 °C coolant, 95 RON, 1.5° knock margin
+      spark: table(AX.rpm, load, (rpm, l) => Math.min(mbt(rpm, l / 100, E), klPure(E, rpm, l / 100, 95, 25, 90) - 1.5), 0.5),
+      // target lambda
+      lambda: table(AX.rpm, load, (rpm, l) => {
+        if (E.turbo) return l > 95 ? lerp(0.98, 0.78, clamp((l - 95) / 80, 0, 1)) : 1;
+        return l >= 85 ? 0.87 : l >= 75 ? 0.93 : 1;
+      }, 0.01),
+    };
+    // boost target (bar) at "boost target" slider = 1.00; the slider scales the whole table
+    if (E.turbo) cal.boost = table(AX.rpm, AX.pedal, (rpm, p) => clamp((p - 15) / 60, 0, 1) * (rpm < 1500 ? 0.5 : rpm < 2000 ? 0.8 : rpm > 6000 ? 0.9 : 1), 0.05);
+    return cal;
+  }
+  ECU.makeCal = makeCal;
+
+  // bilinear interpolation, clamped at the table edges
+  function seg(ax, v) {
+    if (v <= ax[0]) return [0, 0];
+    const n = ax.length - 1;
+    if (v >= ax[n]) return [n - 1, 1];
+    let i = 0;
+    while (v > ax[i + 1]) i++;
+    return [i, (v - ax[i]) / (ax[i + 1] - ax[i])];
+  }
+  function interp2(t, xv, yv) {
+    const [i, fx] = seg(t.x, xv), [j, fy] = seg(t.y, yv);
+    const i1 = Math.min(i + 1, t.x.length - 1), j1 = Math.min(j + 1, t.y.length - 1);
+    const a = t.z[j][i] + (t.z[j][i1] - t.z[j][i]) * fx;
+    const b = t.z[j1][i] + (t.z[j1][i1] - t.z[j1][i]) * fx;
+    return a + (b - a) * fy;
+  }
+  ECU.interp2 = interp2;
+  ECU.calCell = seg;
 
   function gLambda(l) {
     if (l >= 0.88) return Math.pow(0.88 / l, 0.45);
@@ -108,6 +164,7 @@
       catMon: { up: 0, dn: 0 }, lastUpRich: false, lastDnRich: false,
       elecW: 0, loadCalc: 0, loadPct: 0, loadSrc: 'MAF', airCylMeas: 0,
       flags: {},
+      cal: makeCal(E),
     };
     if (prev) {
       // carry user inputs across engine switch
@@ -584,10 +641,10 @@
 
     // ---------- Target lambda ----------
     // reasons are i18n keys ({k, v}); `soft` = the reason may still be overridden by warm-up text
-    let lt = 1, reason = { k: 'stoichiometric (catalyst window)' }, soft = true, power = false;
-    if (E.turbo) {
-      if (loadN > 0.95) { lt = lerp(0.98, 0.78, clamp((loadN - 0.95) / 0.8, 0, 1)); reason = { k: 'power enrichment under boost' }; soft = false; power = true; }
-    } else if (S.throttle > 70 || loadN > 0.88) { lt = 0.87; reason = { k: 'power enrichment (WOT)' }; soft = false; power = true; }
+    let lt = interp2(S.cal.lambda, sens.rpm, loadN * 100), reason = { k: 'stoichiometric (catalyst window)' }, soft = true, power = false;
+    S.lambdaMap = lt;
+    if (lt < 0.985) { reason = { k: E.turbo ? 'power enrichment under boost' : 'power enrichment (WOT)' }; soft = false; power = true; }
+    else if (lt > 1.015) { reason = { k: 'lean cruise (from the λ map)' }; soft = false; }
     const egtLim = E.turbo ? 950 : 920;
     if (S.egt > egtLim) { lt = Math.min(lt, 0.8); reason = { k: 'component protection (EGT > {t} °C)', v: { t: egtLim } }; soft = false; }
     const warm = clamp((50 - ectU) / 70, 0, 1) * 0.22;
@@ -607,8 +664,8 @@
 
     // ---------- Boost control ----------
     if (E.turbo) {
-      const req = clamp((S.pedal - 15) / 60, 0, 1);
-      S.boostTargetKpa = F.map && false ? 0 : S.boostTarget * 100 * req;
+      S.boostMap = interp2(S.cal.boost, sens.rpm, S.pedal);
+      S.boostTargetKpa = S.boostMap * S.boostTarget * 100;
       const boostRel = sens.boost - S.baro;
       const err = S.boostTargetKpa - boostRel;
       const dBoost = (boostRel - (S.prevBoost ?? boostRel)) / dt;
@@ -622,7 +679,8 @@
         S.wgCmd = clamp(ff - 0.012 * err - S.wgI + 0.0035 * S.dBoostF, 0, 1);
       }
       // overboost protection
-      if (boostRel > S.boostTarget * 100 + 35) S.overboostT += dt; else S.overboostT = 0;
+      const boostMax = Math.max(...S.cal.boost.z.map((row) => Math.max(...row))) * S.boostTarget * 100;
+      if (boostRel > boostMax + 35) S.overboostT += dt; else S.overboostT = 0;
       if (!S.overboostCut && S.overboostT > 0.35) {
         S.overboostCut = true; setDTC(S, 'P0234');
         log(S, 'OVERBOOST {b} bar → fuel cut & throttle closed to protect the engine.', 'fault', { b: (boostRel / 100).toFixed(2) });
@@ -655,8 +713,10 @@
 
     // ---------- Spark ----------
     S.mbtNow = mbt(sens.rpm, loadN, E);
-    S.klNow = knockLimit(S, 95, loadN, 0);
-    let base = Math.min(S.mbtNow, S.klNow - 1.5);
+    S.klNow = knockLimit(S, S.octane, loadN, 0); // shown to the user; the ECU itself can't know it
+    S.sparkMap = interp2(S.cal.spark, sens.rpm, loadN * 100);
+    S.sparkCorr = -Math.max(0, iatU - 25) * 0.2 - Math.max(0, ectU - 95) * 0.4; // map is at 25 °C IAT / ≤95 °C ECT
+    let base = S.sparkMap + S.sparkCorr;
     if (S.idleActive) base = S.mbtNow - 6;
     if (sens.rpm < 450 && S.cranking) base = 8;
     S.catHeat = S.startEct < 40 && S.runT < 25 && S.running ? -7 * (1 - S.runT / 25) : 0;
@@ -688,7 +748,7 @@
     else if (S.o2Temp < 350) ol = { k: 'O2 sensor heating ({t} °C)', v: { t: S.o2Temp.toFixed(0) } };
     else if (S.dfco) ol = { k: 'decel fuel cut' };
     else if (S.revCut || S.overboostCut) ol = { k: 'fuel cut' };
-    else if (lt < 0.985) ol = reason;
+    else if (lt < 0.985 || lt > 1.015) ol = reason;
     else if (S.o2Dead) ol = { k: 'O2 sensor fault (P0134)' };
     else if (S.injCut.some(Boolean)) ol = { k: 'cylinder shut-off (trims frozen)' };
     else if (S.runT < 3) ol = { k: 'post-start stabilisation' };

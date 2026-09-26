@@ -14,6 +14,7 @@
 
   // fresh, predictable starting point for a lesson
   function reset(app, { type = 'na', hot = false, octane = 95 } = {}) {
+    app.stockMode = true;
     app.selectEngine(type);
     const S = app.S;
     if (hot) { S.ect = 88; S.oilT = 90; }
@@ -222,6 +223,7 @@
 
   Lessons.prototype.stop = function () {
     this.clearFocus();
+    if (this.app.stockMode) this.app.useStockCal(false); // back to the user's own maps
     this.lesson = null;
     this.card.classList.remove('open');
   };
