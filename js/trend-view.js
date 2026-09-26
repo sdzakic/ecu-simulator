@@ -19,6 +19,14 @@
       { title: 'Injection', series: [{ k: 'pw', name: 'PW ms', col: C.fuel, min: 0, max: 20, fmt: (v) => v.toFixed(2) }, { k: 'duty', name: 'duty %', col: C.hot, min: 0, max: 100, fmt: (v) => v.toFixed(0) }] },
       { title: 'Temperatures', series: [{ k: 'ect', name: 'ECT °C', col: C.info, min: -20, max: 130, fmt: (v) => v.toFixed(0) }, { k: 'iat', name: 'IAT °C', col: C.air, min: -20, max: 130, fmt: (v) => v.toFixed(0) }, { k: 'egt', name: 'EGT/10', col: C.hot, min: -20, max: 130, fmt: (v) => (v * 10).toFixed(0) }] },
     ];
+    this.dieselCharts = {
+      2: { title: 'Emissions', series: [{ k: 'nox', name: 'NOx ppm', col: '#ff9f43', min: 0, max: 2000, fmt: (v) => v.toFixed(0) }, { k: 'soot', name: 'DPF soot g', col: '#c3cfdc', min: 0, max: 50, fmt: (v) => v.toFixed(1) }] },
+      3: { title: 'Mixture λ', series: [{ k: 'lamD', name: 'actual', col: C.fuel, min: 1, max: 7, fmt: (v) => v.toFixed(2) }], ref: 1.2 },
+      4: { title: 'EGR & MAF', series: [{ k: 'egr', name: 'EGR valve %', col: '#a2826c', min: 0, max: 100, fmt: (v) => v.toFixed(0) }, { k: 'mafD', name: 'MAF g/s', col: C.air, min: 0, max: 180, fmt: (v) => v.toFixed(1) }] },
+      5: { title: 'Timing & rail', series: [{ k: 'spk', name: 'SOI °', col: C.spark, min: -5, max: 20, fmt: (v) => v.toFixed(1) }, { k: 'rail', name: 'rail bar', col: C.fuel, min: 0, max: 2000, fmt: (v) => v.toFixed(0) }] },
+      6: { title: 'Injection', series: [{ k: 'q', name: 'main mg', col: C.fuel, min: 0, max: 70, fmt: (v) => v.toFixed(1) }, { k: 'post', name: 'post mg', col: C.cam, min: 0, max: 70, fmt: (v) => v.toFixed(1) }] },
+      7: { title: 'Temperatures', series: [{ k: 'ect', name: 'ECT °C', col: C.info, min: -20, max: 130, fmt: (v) => v.toFixed(0) }, { k: 'egt', name: 'EGT/10', col: C.hot, min: -20, max: 130, fmt: (v) => (v * 10).toFixed(0) }, { k: 'dpfT', name: 'DPF/10', col: C.cam, min: -20, max: 130, fmt: (v) => (v * 10).toFixed(0) }] },
+    };
     this.turboCharts = { 1: { title: 'Load & boost', series: [{ k: 'map', name: 'MAP kPa', col: C.air, min: 0, max: 250, fmt: (v) => v.toFixed(0) }, { k: 'btgt', name: 'target', col: C.hot, min: 0, max: 250, dash: true, fmt: (v) => v.toFixed(0) }, { k: 'wg', name: 'WG %', col: C.muted, min: 0, max: 250 / 100 * 100, scale: 2.5, fmt: (v) => (v / 2.5).toFixed(0) }] } };
   }
 
@@ -33,6 +41,8 @@
         stft: S.stft * 100, ltft: S.ltft * 100, spk: S.running ? S.spark : NaN, kr: Math.max(...S.knockRetard),
         pw: S.pw, duty: S.injDuty * 100, ect: S.ect, iat: S.iat, egt: S.egt / 10,
         btgt: S.E.turbo ? S.baro + S.boostTargetKpa : NaN, wg: S.wgPos * 250,
+        nox: S.nox || 0, soot: S.soot || 0, lamD: S.rpm > 300 ? Math.min(S.lambda, 7) : NaN, egr: (S.egrPos || 0) * 100, mafD: S.mafTrue,
+        rail: S.rail || 0, q: S.qMg || 0, post: S.postMg || 0, dpfT: (S.dpfT || 0) / 10,
       });
       if (this.buf.length > N) this.buf.shift();
     }
@@ -48,7 +58,7 @@
     ctx.clearRect(0, 0, w, H);
     const cw = (w - (cols - 1) * 10) / cols;
     this.charts.forEach((chart0, i) => {
-      const chart = S.E.turbo && this.turboCharts[i] ? this.turboCharts[i] : chart0;
+      const chart = (S.E.diesel && this.dieselCharts[i]) || (S.E.turbo && this.turboCharts[i]) || chart0;
       const x = (i % cols) * (cw + 10), y = Math.floor(i / cols) * (ch + 10);
       this.chart(ctx, x, y, cw, ch, chart);
     });

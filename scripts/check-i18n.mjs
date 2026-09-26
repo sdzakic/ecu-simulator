@@ -7,14 +7,14 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.window = globalThis;
 const load = (f) => new Function(readFileSync(join(root, f), 'utf8'))();
-['js/i18n.js', 'js/i18n-hr.js', 'js/info.js', 'js/info-hr.js'].forEach(load);
+['js/i18n.js', 'js/i18n-hr.js', 'js/info.js', 'js/info-hr.js', 'js/sim.js', 'js/diesel.js'].forEach(load);
 const HR = globalThis.ECU.HR;
 
 const missing = new Map();
 const note = (key, where) => { if (key && !(key in HR)) missing.set(key, where); };
 
 // 1) explicit keys: T('..'), ECU.t('..'), log(.., '..'), edge(.., '..'), { k: '..' }, step('..')
-const files = ['sim.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js', 'obd.js'];
+const files = ['sim.js', 'diesel.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js', 'obd.js'];
 const str = `'((?:[^'\\\\]|\\\\.)*)'|"((?:[^"\\\\]|\\\\.)*)"`;
 const patterns = [
   new RegExp(`\\bT\\(\\s*(?:${str})`, 'g'),
@@ -41,6 +41,8 @@ for (const f of files) {
 }
 
 // 2) data tables used through T()
+Object.values(globalThis.ECU.DIESEL_LIMITERS).forEach((t) => note(t, 'DIESEL_LIMITERS'));
+['pre-glow', 'post-glow', 'ready'].forEach((t) => note(t, 'glow phases'));
 const E = globalThis.ECU;
 E.STROKES.forEach((s) => note(s.name, 'info.js STROKES'));
 ['STROKE_WORD', 'STROKE_NAME'].forEach(() => ['POWER', 'EXHAUST', 'INTAKE', 'COMPRESSION'].forEach((w) => note(w, 'stroke words')));
@@ -60,7 +62,8 @@ E.LESSONS.forEach((l) => {
 // 2c) challenge cases and difficulties carry {en, hr} texts
 load('js/challenge.js');
 for (const [id, c] of Object.entries(E.CHALLENGE.CASES)) {
-  for (const [what, o] of [['complaint', c.complaint], ['hint 1', c.hints[0]], ['hint 2', c.hints[1]]]) if (!o || !o.en || !o.hr) missing.set(`challenge ${id} ${what}`, 'challenge.js');
+  for (const v of [c, c.dieselText].filter(Boolean))
+    for (const [what, o] of [['complaint', v.complaint], ['hint 1', v.hints[0]], ['hint 2', v.hints[1]]]) if (!o || !o.en || !o.hr) missing.set(`challenge ${id} ${what}`, 'challenge.js');
 }
 for (const [id, d] of Object.entries(E.CHALLENGE.DIFFS)) for (const k of ['title', 'desc']) if (!d[k].en || !d[k].hr) missing.set(`difficulty ${id} ${k}`, 'challenge.js');
 
@@ -73,8 +76,8 @@ for (const m of html.matchAll(/<(\w+)[^>]*\sdata-i18n(?:-html)?(?:\s[^>]*)?>([\s
 for (const m of html.matchAll(/data-i18n-title[^>]*?title="([^"]*)"/g)) note(m[1], 'index.html title');
 
 // identifiers that the patterns pick up but are never shown: log kinds, edge() flags, series keys
-const ids = 'ok info warn fault running dfco rev onboost injmax misfire kmh map thr o2 o2dn lam lamT stft ltft spk kr pw duty ect iat egt btgt wg'.split(' ');
-const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge', '44', '49 02 01 ']);
+const ids = 'ok info warn fault running dfco rev onboost injmax misfire kmh map thr o2 o2dn lam lamT stft ltft spk kr pw duty ect iat egt btgt wg dsmoke egr nox soot lamD mafD rail q dpfT'.split(' ');
+const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge', '44', '49 02 01 ', '2.0 TDI', 'DPF', 'NOx ppm']);
 const list = [...missing].filter(([k]) => !ignore.has(k));
 if (!list.length) console.log('✓ all translation keys covered');
 else { console.log(`${list.length} missing:`); list.forEach(([k, w]) => console.log(`  [${w}] ${k}`)); process.exitCode = 1; }

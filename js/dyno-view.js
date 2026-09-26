@@ -12,7 +12,7 @@
   const VIEWS = {
     power: { label: 'Torque & power' },
     boost: { label: 'Boost', key: 'boost', unit: 'bar', scale: 0.01, fmt: (v) => v.toFixed(2) },
-    spark: { label: 'Spark', key: 'spark', unit: '° BTDC', scale: 1, fmt: (v) => v.toFixed(1) },
+    spark: { label: 'Timing', key: 'spark', unit: '° BTDC', scale: 1, fmt: (v) => v.toFixed(1) },
     lam: { label: 'λ', key: 'lam', unit: '', scale: 1, fmt: (v) => v.toFixed(2) },
   };
   const niceMax = (v, step) => Math.max(step, Math.ceil(v / step) * step);
@@ -39,7 +39,8 @@
   };
 
   DynoView.prototype.label = function (r) {
-    const parts = [r.type === 'turbo' ? T('Turbo') : T('NA'), `${r.octane} RON`];
+    const parts = [r.type === 'turbo' ? T('Turbo') : r.type === 'diesel' ? T('Diesel') : T('NA')];
+    if (r.type !== 'diesel') parts.push(`${r.octane} RON`);
     if (r.type === 'turbo') parts.push(T('boost ×{b}', { b: r.boost.toFixed(2) }));
     parts.push(r.mapsMod ? T('modified maps') : T('stock maps'));
     if (r.faults && r.faults.length) parts.push(T('{n} fault(s)', { n: r.faults.length }));
@@ -127,11 +128,11 @@
     } else {
       const v = VIEWS[this.view];
       const vals = all.map((x) => x[v.key] * v.scale);
-      if (this.view === 'lam') { yMax = 1.2; }
+      if (this.view === 'lam') { const lv = vals.length ? vals : [0.8, 1.1]; yMax = Math.max(1.2, Math.ceil(Math.max(...lv) * 5) / 5 + 0.1); }
       else yMax = this.view === 'boost' ? niceMax(Math.max(0.5, ...vals) * 1.15, 0.25) : niceMax(Math.max(20, ...vals) * 1.1, 5);
       yUnit = v.unit;
     }
-    const yMin = this.view === 'lam' ? 0.7 : this.view === 'spark' ? Math.min(0, Math.floor(Math.min(0, ...all.map((x) => x.spark)) / 5) * 5) : 0;
+    const yMin = this.view === 'lam' ? Math.min(0.7, Math.floor(Math.min(0.8, ...all.map((x) => x.lam)) * 10) / 10) : this.view === 'spark' ? Math.min(0, Math.floor(Math.min(0, ...all.map((x) => x.spark)) / 5) * 5) : 0;
     const yOf = (v) => Tp + ph - ((v - yMin) / (yMax - yMin)) * ph;
     const y2Of = (v) => Tp + ph - (v / y2Max) * ph;
 

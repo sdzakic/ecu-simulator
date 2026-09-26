@@ -9,6 +9,7 @@
   const STROKE_COL = ['#ff7a3d', '#a08a7a', '#3fc6ff', '#b98cff'];
   const STROKE_NAME = ['POWER', 'EXHAUST', 'INTAKE', 'COMPRESSION'];
   const T = (s, v) => ECU.t(s, v);
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   function EngineView(canvas) {
     this.canvas = canvas;
@@ -20,6 +21,12 @@
 
   EngineView.prototype.cylState = function (S, c) {
     const F = S.faults;
+    if (S.E.diesel) {
+      // compression ignition: "spark" = the charge is hot enough to self-ignite
+      const fuel = S.ecuOn && S.qMg > 0 && S.sync === 2 && !F.ckp;
+      const ign = fuel && S.ignQ > 0.25;
+      return { fuel, spark: ign, burn: ign && S.rpm > 60 };
+    }
     const fuel = S.ecuOn && S.pw > 0 && !S.injCut[c] && !S.fuelCutAll && S.sync > 0;
     const spark = S.ecuOn && S.sync > 0 && S.rpm > 40 && !F.ckp && !(F.misfire3 && c === 2);
     return { fuel, spark, burn: fuel && spark && S.rpm > 60 && S.lambdaCyl[c] < 1.75 };
@@ -84,15 +91,23 @@
     const half = cellW / 2;
 
     // ---- spark / injection windows ----
-    const adv = S.sparkCyl[c] || 0;
+    const D = S.E.diesel;
+    // diesel: combustion starts ~7° after the start of the main injection (ignition delay)
+    const adv = D ? (S.soi || 0) - 7 : S.sparkCyl[c] || 0;
     const Ls = (720 - adv + 720) % 720;
     const sinceSpark = (L - Ls + 720) % 720;
-    const sparkNow = cs.spark && sinceSpark < 16;
-    const wasted = cs.spark && S.sync === 1 && ((L - (Ls + 360) + 1440) % 720) < 16;
+    const sparkNow = !D && cs.spark && sinceSpark < 16;
+    const wasted = !D && cs.spark && S.sync === 1 && ((L - (Ls + 360) + 1440) % 720) < 16;
     const dwellDeg = Math.min(200, S.dwell * degPerMs);
-    const dwellNow = cs.spark && ((Ls - L + 720) % 720) < dwellDeg;
-    let injNow = false, injProg = 0;
-    if (cs.fuel) {
+    const dwellNow = !D && cs.spark && ((Ls - L + 720) % 720) < dwellDeg;
+    let injNow = false, injProg = 0, injKind = '';
+    if (D && cs.fuel) {
+      // pilot, main (near TDC) and — during regeneration — a late post injection
+      const win = (start, len, kind) => { const d = (L - start + 1440) % 720; if (d < Math.max(len, 3)) { injNow = true; injProg = d / Math.max(len, 3); injKind = kind; } };
+      if (S.pilot) win(720 - S.pilotSoi, 4, 'pilot');
+      win(720 - S.soi, Math.min(90, S.pw * degPerMs), 'main');
+      if (S.postMg > 0) win(70, 10, 'post');
+    } else if (cs.fuel) {
       const windows = S.batch ? [S.eoi, S.eoi - 360] : [S.eoi];
       const pwDeg = Math.min(680, S.pw * degPerMs);
       for (const eoi of windows) {
@@ -167,13 +182,13 @@
     const comp = 1 - (crownY - 106) / 70; // 0 at BDC .. 1 at TDC
     let gas;
     if (stroke === 2) gas = rgba(C.air, 0.16 + 0.1 * liftIn);
-    else if (stroke === 3) gas = rgba(mix('#3fc6ff', '#b98cff', comp), 0.22 + 0.35 * comp);
+    else if (stroke === 3) gas = rgba(mix('#3fc6ff', D ? '#ff9a5a' : '#b98cff', comp), 0.22 + 0.35 * comp); // diesel: air heats up by compression
     else if (stroke === 0) gas = burning || cs.burn ? rgba(mix('#ff5a1f', '#6b2a12', L / 180), 0.55 - 0.25 * (L / 180)) : 'rgba(185,140,255,0.25)';
     else gas = rgba('#8c7564', 0.35 * (1 - (L - 180) / 180) + 0.05);
     ctx.fillStyle = gas;
     ctx.fillRect(-bw, roof - 10, 2 * bw, crownY - roof + 12);
-    // fuel droplets during intake / compression
-    if (cs.fuel && (stroke === 2 || stroke === 3)) {
+    // fuel droplets during intake / compression (port injection only)
+    if (!D && cs.fuel && (stroke === 2 || stroke === 3)) {
       const n = stroke === 2 ? Math.floor(4 + 22 * ((L - 360) / 180)) : 26;
       ctx.fillStyle = rgba(C.fuel, stroke === 2 ? 0.8 : 0.5 * (1 - comp) + 0.2);
       for (let i = 0; i < n; i++) {
@@ -182,8 +197,24 @@
         ctx.beginPath(); ctx.arc(px, py, stroke === 2 ? 1.6 : 1.2, 0, Math.PI * 2); ctx.fill();
       }
     }
+    // diesel: combustion starts at the spray plumes; darker (sooty) near the smoke limit, pale when cold
+    if (D && burning) {
+      const prog = Math.min(1, sinceSpark / 30);
+      const sooty = clamp((1.6 - S.lambda) / 0.5, 0, 1), pale = clamp((1 - S.ignQ) * 1.6, 0, 1);
+      ctx.globalAlpha = sinceSpark < 110 ? 1 : Math.max(0, 1 - (sinceSpark - 110) / 90);
+      for (const px of [-bw * 0.55, 0, bw * 0.55]) {
+        const R = 6 + prog * 60;
+        const grd = ctx.createRadialGradient(px, roof + 10, 0, px, roof + 10, R);
+        grd.addColorStop(0, rgba(mix('#fff3c0', '#ffffff', pale), 0.95));
+        grd.addColorStop(0.4, rgba(mix(mix('#ffb040', '#8a3a10', sooty), '#d8d8d8', pale), 0.85));
+        grd.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(-bw, roof - 10, 2 * bw, crownY - roof + 12);
+      }
+      ctx.globalAlpha = 1;
+    }
     // flame front
-    if (burning) {
+    if (!D && burning) {
       const prog = Math.min(1, sinceSpark / (35 + adv * 0.8));
       const R = 6 + prog * 110;
       const grd = ctx.createRadialGradient(0, roof - 2, 0, 0, roof - 2, R);
@@ -318,7 +349,9 @@
     drawCam(-G.vx, 470 - vvt, C.air, liftIn);
     drawCam(G.vx, 251, '#e0935a', liftEx);
 
+    if (D) this.drawDieselHead(ctx, S, injNow, injKind, injProg);
     // ---- spark plug & coil ----
+    if (!D) {
     ctx.fillStyle = dwellNow ? rgba(C.spark, 0.3 + 0.5 * (1 - ((Ls - L + 720) % 720) / Math.max(dwellDeg, 1))) : '#232f40';
     rr(ctx, -7, 4, 14, 20, 3);
     ctx.fill();
@@ -344,8 +377,10 @@
       ctx.beginPath(); ctx.arc(0, 97, 22, 0, Math.PI * 2); ctx.fill();
       noGlow(ctx);
     }
+    }
 
-    // ---- injector ----
+    // ---- injector (port injection, petrol) ----
+    if (!D) {
     ctx.save();
     ctx.translate(-62, 50);
     ctx.rotate(0.62);
@@ -377,6 +412,7 @@
       }
       ctx.restore();
     }
+    }
 
     // ---- labels ----
     ctx.textAlign = 'center';
@@ -405,7 +441,9 @@
     if (sparkNow) tags.push([T('⚡ SPARK {a}° BTDC', { a: adv.toFixed(0) }), C.spark]);
     else if (wasted) tags.push([T('wasted spark'), C.muted]);
     else if (dwellNow) tags.push([T('coil charging'), rgba(C.spark, 0.8)]);
-    if (injNow) tags.push([T('INJ {pw} ms', { pw: S.pw.toFixed(1) }), C.fuel]);
+    if (injNow && D) tags.push([injKind === 'main' ? T('MAIN {q} mg', { q: S.qMg.toFixed(1) }) : injKind === 'pilot' ? T('PILOT') : T('POST (regen)'), injKind === 'post' ? C.cam : C.fuel]);
+    else if (injNow) tags.push([T('INJ {pw} ms', { pw: S.pw.toFixed(1) }), C.fuel]);
+    if (D && S.glowOn && stroke === 3) tags.push([T('GLOW'), '#ff9a5a']);
     if (this.knockShown[c]) tags.push([T('KNOCK!'), '#ffffff']);
     if (S.faults.misfire3 && c === 2 && S.running && !ECU.hideTruth) tags.push([T('NO SPARK'), C.bad]);
     if (S.injCut[c]) tags.push([T('INJ CUT'), C.bad]);
@@ -423,9 +461,41 @@
     ctx.textAlign = 'left';
   };
 
+  // diesel head: central piezo injector spraying into the piston bowl, glow plug beside it
+  EngineView.prototype.drawDieselHead = function (ctx, S, injNow, kind, prog) {
+    const { roof } = G;
+    // glow plug (angled, tip glows with its temperature)
+    ctx.save();
+    ctx.translate(14, 30); ctx.rotate(-0.28);
+    ctx.fillStyle = '#3a4a5e'; rr(ctx, -4, -14, 8, 16, 2); ctx.fill();
+    ctx.fillStyle = '#8a99ab'; ctx.fillRect(-2, 2, 4, 56);
+    const gt = S.glowTemp || 0;
+    if (gt > 0.05) { glow(ctx, '#ff7a3d', 14 * gt); ctx.fillStyle = mix('#8a99ab', '#ffcc66', gt); ctx.fillRect(-2.5, 48, 5, 12); noGlow(ctx); }
+    ctx.restore();
+    // injector body
+    ctx.fillStyle = injNow ? (kind === 'post' ? C.cam : C.fuel) : '#3a4a5e';
+    rr(ctx, -6, 4, 12, 26, 3); ctx.fill();
+    ctx.fillStyle = '#9aa8b8'; ctx.fillRect(-3, 30, 6, 58);
+    ctx.fillStyle = '#c6d0dc'; ctx.fillRect(-1.5, 88, 3, 5);
+    if (!injNow) return;
+    // multi-hole spray plumes
+    const len = (kind === 'pilot' ? 18 : 42) * (0.4 + 0.6 * Math.min(1, prog * 2));
+    ctx.save();
+    for (const ang of [-1.0, -0.5, 0, 0.5, 1.0]) {
+      const ex = Math.sin(ang) * len, ey = Math.cos(ang) * len;
+      const grd = ctx.createLinearGradient(0, roof - 6, ex, roof - 6 + ey);
+      grd.addColorStop(0, kind === 'post' ? 'rgba(185,140,255,0.95)' : 'rgba(255,200,90,0.95)');
+      grd.addColorStop(1, 'rgba(255,200,90,0)');
+      ctx.strokeStyle = grd; ctx.lineWidth = kind === 'pilot' ? 1.5 : 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, roof - 6); ctx.lineTo(ex, roof - 6 + ey); ctx.stroke();
+    }
+    ctx.restore();
+  };
+
   // Describe what's happening at this crank angle, for the "now" box
   EngineView.prototype.describe = function (S, theta) {
     const tag = (bg, fg, text, v) => `<span class="tag" style="background:${bg};color:${fg}">${T(text, v)}</span> `;
+    if (S.E.diesel) return this.describeDiesel(S, theta, tag);
     if (!S.ecuOn) return T('Key OFF — the ECU is asleep. Turn the key to <b>ON</b>.');
     if (S.rpm < 5) {
       if (S.primeT > 0) return tag('#3a2a0a', '#ffc043', 'PRIME') + T('Fuel pump running for 2 s to pressurise the rail. All warning lamps lit for the bulb check.');
@@ -455,6 +525,26 @@
     return items.length ? items[0].t : T('Crank at {a}° — between events. Tooth #{n} under the CKP sensor.', { a: theta.toFixed(0), n: tooth.idx + 1 });
   };
 
+
+  EngineView.prototype.describeDiesel = function (S, theta, tag) {
+    if (!S.ecuOn) return T('Key OFF — the ECU is asleep. Turn the key to <b>ON</b>.');
+    if (S.glowPhase === 'pre') return tag('#3a2a0a', '#ffb020', 'GLOW') + T('Glow plugs pre-heating the chambers ({s} s left). Wait for the glow lamp to go out, then crank.', { s: Math.max(0, S.glowT).toFixed(1) });
+    if (S.rpm < 5) return T('ECU awake, engine stopped. Oil and battery lamps on (no oil pressure, no charging). Press <b>START</b>.');
+    if (S.sync < 2) return tag('#3a2a0a', '#ffc043', 'CRANKING') + T('Starter spins the engine. The rail pressure must build up and the ECU must see the CKP gap and the cam pulse before it may inject.');
+    const items = [];
+    for (let c = 0; c < 4; c++) {
+      const L = ECU.localAngle(theta, c), n = c + 1;
+      const cs = this.cylState(S, c);
+      const since = (L - (720 - S.soi) + 720) % 720;
+      if (cs.fuel && since < Math.max(6, S.pw * S.rpm * 0.006)) items.push({ p: 3, t: tag('#3a2a0a', '#ffb020', 'MAIN {c}', { c: n }) + T('Main injection into cylinder {c}: {q} mg at {r} bar, starting {a}° BTDC, straight into the hot compressed air.', { c: n, q: S.qMg.toFixed(1), r: S.rail.toFixed(0), a: S.soi.toFixed(1) }) });
+      else if (cs.fuel && S.pilot && ((L - (720 - S.pilotSoi) + 720) % 720) < 5) items.push({ p: 2.6, t: tag('#3a2a0a', '#ffd070', 'PILOT {c}', { c: n }) + T('A tiny pilot injection (~1.5 mg) in cylinder {c} starts burning first, so the main injection lights softly — less of the diesel clatter.', { c: n }) });
+      if (cs.burn && L > 2 && L < 50) items.push({ p: 2, t: tag('#3a1a0a', '#ff7a3d', 'POWER {c}', { c: n }) + T('The fuel self-ignites in cylinder {c} — no spark plug. Compression to 16.5:1 heated the air to ~600 °C.', { c: n }) });
+      if (S.postMg > 0 && L > 65 && L < 85) items.push({ p: 2.8, t: tag('#2a1a3a', '#b98cff', 'POST {c}', { c: n }) + T('Post-injection in cylinder {c}: too late to make torque — the fuel burns on the oxidation catalyst and heats the DPF for regeneration.', { c: n }) });
+      if (L > 600 && L < 640) items.push({ p: 1, t: tag('#2a1a3a', '#ff9a5a', 'COMP {c}', { c: n }) + T('Cylinder {c} compressing pure air (no throttle, no fuel yet) — the temperature climbs towards auto-ignition.', { c: n }) });
+    }
+    items.sort((a, b) => b.p - a.p);
+    return items.length ? items[0].t : T('Crank at {a}° — between events. Tooth #{n} under the CKP sensor.', { a: theta.toFixed(0), n: ECU.ckpTooth(theta).idx + 1 });
+  };
 
   ECU.EngineView = EngineView;
 })();

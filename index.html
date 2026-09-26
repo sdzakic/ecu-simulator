@@ -27,6 +27,7 @@
     <div class="seg engine-seg" id="engineSel" role="tablist" aria-label="Engine type">
       <button data-engine="na" class="active"><span class="seg-title" data-i18n>Naturally aspirated</span><span class="seg-sub">2.0 L I4 · 11:1</span></button>
       <button data-engine="turbo"><span class="seg-title" data-i18n>Turbocharged</span><span class="seg-sub" data-i18n>2.0 L I4 · intercooled</span></button>
+      <button data-engine="diesel"><span class="seg-title" data-i18n>Diesel</span><span class="seg-sub" data-i18n>2.0 TDI · common rail</span></button>
     </div>
 
     <div class="top-right">
@@ -103,7 +104,7 @@
         </div>
       </section>
 
-      <section class="ctl turbo-only">
+      <section class="ctl pturbo-only">
         <h3><span data-i18n>Boost target</span> <span class="val mono" id="boostTgtVal">1.00 bar</span></h3>
         <input type="range" id="boostTgt" min="0.3" max="1.6" step="0.05" value="1.0" class="range" />
       </section>
@@ -114,8 +115,8 @@
         <input type="range" id="ambient" min="-20" max="45" step="1" value="20" class="range" />
         <label class="slider-lbl"><span data-i18n>Road grade</span> <span class="mono" id="gradeVal">0 %</span></label>
         <input type="range" id="grade" min="-8" max="12" step="1" value="0" class="range" />
-        <label class="slider-lbl"><span data-i18n>Fuel octane (RON)</span></label>
-        <div class="seg small wide" id="octaneSel">
+        <label class="slider-lbl petrol-only"><span data-i18n>Fuel octane (RON)</span></label>
+        <div class="seg small wide petrol-only" id="octaneSel">
           <button data-o="91">91</button><button data-o="95" class="active">95</button><button data-o="98">98</button><button data-o="102">102</button>
         </div>
         <div class="row2 toggles">
@@ -331,6 +332,7 @@
   <script src="js/info.js"></script>
   <script src="js/info-hr.js"></script>
   <script src="js/sim.js"></script>
+  <script src="js/diesel.js"></script>
   <script src="js/draw-util.js"></script>
   <script src="js/engine-view.js"></script>
   <script src="js/wheel-view.js"></script>

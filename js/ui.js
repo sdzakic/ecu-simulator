@@ -16,7 +16,38 @@
   function readSensor(S, id) {
     const F = S.faults, on = S.ecuOn, run = S.rpm > 30;
     const r = { value: '—', unit: '', short: '—', sig: '', status: on ? 'ok' : 'off', frac: 0 };
+    const D = S.E.diesel;
     switch (id) {
+      case 'rail':
+        r.value = f0(S.rail); r.unit = 'bar'; r.short = `${f0(S.rail)} bar`; r.sig = T('target {t} bar · {v} V', { t: f0(S.railTarget), v: f2(0.5 + (S.rail / 2000) * 4) });
+        r.status = !on ? 'off' : S.running && S.railTarget - S.rail > 150 ? 'warn' : 'ok'; r.frac = S.rail / 2000;
+        break;
+      case 'fueltemp':
+        r.value = f0(S.fuelTemp); r.unit = '°C'; r.short = `${f0(S.fuelTemp)} °C`; r.sig = `${f2(ntcVolts(S.fuelTemp))} V`; r.frac = (S.fuelTemp + 20) / 120;
+        break;
+      case 'lam': {
+        const l = S.lambdaWB;
+        r.value = Number.isNaN(l) ? '—' : l > 8 ? '>8' : f2(l); r.unit = 'λ'; r.short = Number.isNaN(l) ? T('heating') : `λ ${l > 8 ? '>8' : f2(l)}`;
+        r.sig = Number.isNaN(l) ? T('heating ({t} °C)', { t: f0(S.lamSensorT) }) : T('pump current {i} mA', { i: f2((1 - 1 / Math.max(l, 0.7)) * 2.2) });
+        r.status = !on ? 'off' : Number.isNaN(l) ? 'warn' : l < 1.15 && S.running ? 'warn' : 'ok'; r.frac = Number.isNaN(l) ? 0 : clamp((l - 1) / 5, 0, 1);
+        break;
+      }
+      case 'egt2':
+        r.value = f0(S.dpfT); r.unit = '°C'; r.short = `${f0(S.dpfT)} °C`; r.sig = S.regen ? T('regenerating') : T('DOC {t} °C', { t: f0(S.docT) });
+        r.status = !on ? 'off' : S.regen ? 'live' : 'ok'; r.frac = S.dpfT / 750;
+        break;
+      case 'dpfdp':
+        r.value = f0(S.dpfDp); r.unit = 'mbar'; r.short = `${f0(S.dpfDp)} mbar`; r.sig = T('soot ≈ {g} g', { g: f1(S.sootEst) });
+        r.status = !on ? 'off' : S.sootEst > 45 ? 'bad' : S.sootEst > 24 ? 'warn' : 'ok'; r.frac = clamp(S.sootEst / 50, 0, 1);
+        break;
+      case 'egrpos':
+        r.value = f0(S.egrPos * 100); r.unit = '%'; r.short = `${f0(S.egrPos * 100)} %`; r.sig = T('cmd {c} % · EGR rate {e} %', { c: f0(S.egrCmd * 100), e: f0(S.egrRate * 100) });
+        r.status = !on ? 'off' : S.egrPos > 0.1 ? 'live' : 'ok'; r.frac = S.egrPos;
+        break;
+      case 'vgtpos':
+        r.value = f0(S.wgPos * 100); r.unit = T('% open'); r.short = `${f0(S.wgPos * 100)} %`; r.sig = T('cmd {c} % open', { c: f0(S.wgCmd * 100) });
+        r.status = on ? 'ok' : 'off'; r.frac = S.wgPos;
+        break;
       case 'ckp': {
         const rpm = F.ckp ? 0 : S.rpm;
         const hz = (rpm / 60) * 58;
@@ -39,12 +70,12 @@
         r.value = f1(v); r.unit = 'g/s'; r.short = `${f1(v)} g/s`;
         r.sig = F.maf ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
         r.status = F.maf ? 'bad' : on ? 'ok' : 'off';
-        r.frac = v / (S.E.turbo ? 230 : 130);
+        r.frac = v / (S.E.diesel ? 180 : S.E.turbo ? 230 : 130);
         break;
       }
       case 'map': {
         const v = F.map ? 0 : S.map;
-        const range = S.E.turbo ? 300 : 105;
+        const range = S.E.turbo ? 300 : 105; // diesel is turbo too
         r.value = f0(v); r.unit = 'kPa'; r.short = `${f0(v)} kPa`;
         r.sig = F.map ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.5 + (4 * v) / range)} V`;
         r.status = F.map ? 'bad' : on ? 'ok' : 'off';
@@ -97,7 +128,7 @@
       }
       case 'egt':
         r.value = f0(S.egt); r.unit = '°C'; r.short = `${f0(S.egt)} °C`; r.sig = T('{v} mV (type K)', { v: f1((S.egt * 41) / 1000) });
-        r.status = !on ? 'off' : S.egt > (S.E.turbo ? 950 : 920) ? 'warn' : 'ok'; r.frac = S.egt / 1050;
+        r.status = !on ? 'off' : S.egt > (D ? 780 : S.E.turbo ? 950 : 920) ? 'warn' : 'ok'; r.frac = S.egt / 1050;
         break;
       case 'ect': {
         const t = F.ect ? -40 : S.ect;
@@ -182,20 +213,26 @@
     knock: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>',
     pump: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4 4h9v17H4zM6 6v4h5V6z"/><path d="M14 9h2l3 3v6a1.5 1.5 0 0 0 3 0V9l-3-3 1-1 3 3v10a3 3 0 0 1-6 0v-5l-2-2h-1z"/></svg>',
   };
+  ICON.glow = '<svg viewBox="0 0 24 24"><path d="M4 10c0-1 1-2 2-1s1 3 2 3 1-4 2-4 1 4 2 4 1-4 2-4 1 4 2 4 1-2 2-3 2 0 2 1-1 5-3 5-2-2-3-2-1 2-2 2-1-2-2-2-1 2-2 2-2-4-3-5z"/></svg>';
+  ICON.dpf = '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M3 8h18v8H3zM5 10v4h14v-4z"/><path d="M7 11h1v2H7zm3 0h1v2h-1zm3 0h1v2h-1zm3 0h1v2h-1z"/></svg>';
+  const P = ['na', 'turbo'], DSL = ['diesel'];
   const LAMPS = [
     { id: 'mil', label: 'CHECK', icon: ICON.mil, c: '#ffb020', tip: 'Malfunction indicator (check engine). On with emissions faults, flashes for catalyst-damaging misfire.' },
     { id: 'oil', label: 'OIL', icon: ICON.oil, c: '#ff4d5e', tip: 'Oil pressure below ~0.4 bar.' },
     { id: 'batt', label: 'CHG', icon: ICON.batt, c: '#ff4d5e', tip: 'Alternator not charging.' },
     { id: 'hot', label: 'HOT', icon: ICON.temp, c: '#ff4d5e', tip: 'Coolant over 112 °C.' },
-    { id: 'cold', label: 'COLD', icon: ICON.temp, c: '#62a8ff', tip: 'Engine still cold (<40 °C) — enrichment active, go easy.' },
+    { id: 'cold', label: 'COLD', icon: ICON.temp, c: '#62a8ff', tip: 'Engine still cold (<40 °C) — enrichment active, go easy.', only: P },
+    { id: 'glow', label: 'GLOW', icon: ICON.glow, c: '#ffb020', tip: 'Glow plugs pre-heating — wait until it goes out, then crank. Flashes on a glow-plug fault.', only: DSL },
+    { id: 'dpf', label: 'DPF', icon: ICON.dpf, c: '#ffb020', tip: 'Particulate filter overloaded — needs a regeneration drive or service.', only: DSL },
+    { id: 'regen', label: 'REGEN', c: '#b98cff', tip: 'Active DPF regeneration in progress.', only: DSL },
     { id: 'epc', label: 'EPC', c: '#ffb020', tip: 'Electronic power control — throttle system fault, limp mode.' },
-    { id: 'knock', label: 'KNOCK', icon: ICON.knock, c: '#ffb020', tip: 'Knock just detected and spark retarded.' },
-    { id: 'boost', label: 'OVERBOOST', c: '#ff4d5e', tip: 'Overboost protection active.', turbo: true },
+    { id: 'knock', label: 'KNOCK', icon: ICON.knock, c: '#ffb020', tip: 'Knock just detected and spark retarded.', only: P },
+    { id: 'boost', label: 'OVERBOOST', c: '#ff4d5e', tip: 'Overboost protection active.', only: ['turbo', 'diesel'] },
     { id: 'rev', label: 'SHIFT', c: '#ff4d5e', tip: 'Near/at the rev limiter.' },
     { id: 'lowfuel', label: 'FUEL', icon: ICON.pump, c: '#ffb020', tip: 'Low fuel.' },
     { id: 'pump', label: 'PUMP', c: '#3ee07a', tip: 'Fuel pump relay energised.' },
     { id: 'fan', label: 'FAN', c: '#2ee6c5', tip: 'Radiator fan running.' },
-    { id: 'cl', label: 'CLOSED LOOP', c: '#3ee07a', tip: 'Fuel trimmed by O2 sensor feedback.' },
+    { id: 'cl', label: 'CLOSED LOOP', c: '#3ee07a', tip: 'Fuel trimmed by O2 sensor feedback.', only: P },
     { id: 'dfco', label: 'DFCO', c: '#62a8ff', tip: 'Deceleration fuel cut-off.' },
   ];
 
@@ -204,6 +241,7 @@
     const milDtc = Object.values(S.dtc).some((d) => d.mil);
     const st = {
       mil: on && (milDtc || S.misfireActive || S.rpm < 300),
+      // (diesel lamps below)
       oil: on && S.oilP < 0.45,
       batt: on && (S.rpm < 500 || !!S.faults.alt),
       hot: on && S.ect > 112,
@@ -217,8 +255,11 @@
       fan: on && S.fan,
       cl: on && S.closedLoop,
       dfco: on && S.dfco,
+      glow: on && (S.glowPhase === 'pre' || !!S.dtc.P0670),
+      dpf: on && (S.sootEst > 45 || !!S.dpfLimp),
+      regen: on && !!S.regen,
     };
-    const flash = { mil: S.misfireActive && !S.injCut[2], boost: true, rev: S.revCut };
+    const flash = { mil: S.misfireActive && !S.injCut[2], boost: true, rev: S.revCut, glow: !!S.dtc.P0670 };
     if (on && bulb > 0) for (const k in st) st[k] = true;
     return { st, flash: bulb > 0 ? {} : flash };
   }
@@ -265,15 +306,16 @@
     const list = $('#sensorList');
     list.innerHTML = '';
     this.sRows = {};
+    const type = this.app.S.type;
     for (const g of ECU.SENSOR_GROUPS) {
-      const sens = ECU.SENSORS.filter((s) => s.group === g.id);
+      const sens = ECU.SENSORS.filter((s) => s.group === g.id && ECU.appliesTo(s, type));
       if (!sens.length) continue;
       const box = document.createElement('div');
-      box.className = 's-group' + (g.turboOnly ? ' turbo-only' : '');
+      box.className = 's-group';
       box.innerHTML = `<h4>${T(g.name)}</h4>`;
       for (const s of sens) {
         const row = document.createElement('div');
-        row.className = 'srow' + (s.turboOnly ? ' turbo-only' : '') + (this.selected && this.selected.id === s.id ? ' sel' : '');
+        row.className = 'srow' + (this.selected && this.selected.id === s.id ? ' sel' : '');
         row.dataset.sid = s.id;
         row.innerHTML = `<span class="led"></span><div><div class="sn"><span class="ab">${s.abbr}</span>${ECU.info('sensors', s, 'name')}</div><div class="sbar"><i></i></div></div><div><div class="sv">—</div><div class="ssig"></div></div>`;
         row.addEventListener('click', () => this.openSensor(s.id));
@@ -289,8 +331,9 @@
     box.innerHTML = '';
     this.faultEls = {};
     for (const f of ECU.FAULTS) {
+      if (!ECU.appliesTo(f, this.app.S.type)) continue;
       const b = document.createElement('button');
-      b.className = 'fault' + (f.turboOnly ? ' turbo-only' : '') + (this.app.S.faults[f.id] ? ' on' : '');
+      b.className = 'fault' + (this.app.S.faults[f.id] && !this.faultsLocked ? ' on' : '');
       b.innerHTML = `<span class="sw"></span><span><div class="fn">${ECU.info('faults', f, 'name')}</div><div class="fh">${ECU.info('faults', f, 'hint')}</div></span><span class="fc">${f.dtc}</span>`;
       b.addEventListener('click', () => {
         if (this.faultsLocked) return;
@@ -309,8 +352,9 @@
     box.innerHTML = '';
     this.lampEls = {};
     for (const l of LAMPS) {
+      if (!ECU.appliesTo(l, this.app.S.type)) continue;
       const el = document.createElement('div');
-      el.className = 'lamp' + (l.turbo ? ' turbo-only' : '');
+      el.className = 'lamp';
       el.style.setProperty('--c', l.c);
       el.title = T(l.tip);
       el.innerHTML = (l.icon || '') + `<span>${T(l.label)}</span>`;
@@ -324,8 +368,9 @@
     box.innerHTML = '';
     this.actEls = {};
     for (const a of ECU.ACTUATORS) {
+      if (!ECU.appliesTo(a, this.app.S.type)) continue;
       const el = document.createElement('div');
-      el.className = 'act' + (a.turboOnly ? ' turbo-only' : '');
+      el.className = 'act';
       el.innerHTML = `<div class="an"><span>${ECU.info('actuators', a, 'name')}</span><span class="dot"></span></div><div class="av">—</div><div class="abar"><i></i></div>`;
       el.addEventListener('click', () => this.openActuator(a.id));
       box.appendChild(el);
@@ -336,6 +381,11 @@
   function actState(S, id) {
     const on = S.ecuOn;
     switch (id) {
+      case 'dinj': return { on: S.qMg > 0, v: S.qMg > 0 ? T('{q} mg · {pw} ms at {r} bar', { q: S.qMg.toFixed(1), pw: S.pw.toFixed(2), r: S.rail.toFixed(0) }) + (S.pilot ? ' · ' + T('pilot') : '') + (S.postMg > 0 ? ' · ' + T('post {p} mg', { p: S.postMg.toFixed(1) }) : '') : S.running ? T('fuel CUT') : T('off'), f: S.qMg / 65, c: '#ffb020' };
+      case 'pcv': return { on: on && S.railTarget > 0, v: T('target {t} bar → {a} bar', { t: S.railTarget.toFixed(0), a: S.rail.toFixed(0) }), f: S.rail / 2000, c: '#ffb020' };
+      case 'vgt': return { on: on && S.running, v: T('vanes {o} % open · boost {b}/{t} bar', { o: (S.wgPos * 100).toFixed(0), b: ((S.boostP - S.baro) / 100).toFixed(2), t: (S.boostTargetKpa / 100).toFixed(2) }), f: 1 - S.wgPos, c: '#ff9f43' };
+      case 'egr': return { on: S.egrPos > 0.05, v: T('{p} % open · EGR rate {e} %', { p: (S.egrPos * 100).toFixed(0), e: (S.egrRate * 100).toFixed(0) }), f: S.egrPos, c: '#a2826c' };
+      case 'glow': return { on: !!S.glowOn, v: S.glowOn ? T('ON · {ph}', { ph: T(S.glowPhase === 'pre' ? 'pre-glow' : S.glowPhase === 'post' ? 'post-glow' : 'ready') }) : T('off'), f: S.glowTemp || 0, c: '#ff7a3d' };
       case 'inj': return { on: S.pw > 0, v: S.pw > 0 ? T('{pw} ms · {d} % duty · {mg} mg', { pw: S.pw.toFixed(2), d: (S.injDuty * 100).toFixed(0), mg: S.fuelMg.toFixed(1) }) + (S.batch ? ' · ' + T('BATCH') : '') : S.fuelCutAll && S.running ? T('fuel CUT') : T('off'), f: S.injDuty, c: '#ffb020' };
       case 'coil': return { on: on && S.sync > 0, v: on && S.sync > 0 ? T('{a}° BTDC · dwell {d} ms', { a: S.spark.toFixed(1), d: S.dwell.toFixed(1) }) + (S.batch ? ' · ' + T('WASTED') : '') : T('off'), f: (S.spark + 10) / 55, c: '#ffe45c' };
       case 'etc': return { on, v: T('cmd {c} % → {a} %', { c: S.throttleCmd.toFixed(1), a: S.throttle.toFixed(1) }) + (S.limp ? ' · ' + T('LIMP') : ''), f: S.throttle / 100, c: '#2ee6c5' };
@@ -360,10 +410,11 @@
     const readings = {};
     let active = 0;
     for (const s of ECU.SENSORS) {
+      if (!ECU.appliesTo(s, S.type)) continue;
       const r = readSensor(S, s.id);
       readings[s.id] = r;
-      if (s.turboOnly && !S.E.turbo) continue;
       const row = this.sRows[s.id];
+      if (!row) continue;
       row.v.innerHTML = r.unit ? `${r.value}<small>${r.unit}</small>` : r.value;
       row.sig.textContent = r.sig;
       row.led.className = 'led ' + r.status;
@@ -371,7 +422,7 @@
       row.bar.style.background = r.status === 'bad' ? 'var(--bad)' : r.status === 'warn' ? 'var(--warn)' : 'var(--accent)';
       if (r.status !== 'off') active++;
     }
-    const total = ECU.SENSORS.filter((s) => !s.turboOnly || S.E.turbo).length;
+    const total = ECU.SENSORS.filter((s) => ECU.appliesTo(s, S.type)).length;
     $('#sensorCount').textContent = T('{a}/{n} live', { a: active, n: total });
     this.readings = readings;
 
@@ -384,8 +435,9 @@
 
     // actuators
     for (const a of ECU.ACTUATORS) {
-      const st = actState(S, a.id);
       const e = this.actEls[a.id];
+      if (!e) continue;
+      const st = actState(S, a.id);
       e.el.classList.toggle('on', !!st.on);
       e.el.style.setProperty('--c', st.c || 'var(--ok)');
       e.v.textContent = st.v;
@@ -433,7 +485,7 @@
     document.querySelectorAll('#ckpSel button').forEach((b) => b.classList.toggle('active', b.dataset.t === S.ckpType));
     $('#acBtn').classList.toggle('on', !!S.ac);
     $('#lightsBtn').classList.toggle('on', !!S.lights);
-    for (const f of ECU.FAULTS) this.faultEls[f.id].classList.toggle('on', !this.faultsLocked && !!S.faults[f.id]);
+    for (const f of ECU.FAULTS) if (this.faultEls[f.id]) this.faultEls[f.id].classList.toggle('on', !this.faultsLocked && !!S.faults[f.id]);
     const pairs = [['#grade', '#gradeVal', S.grade, (v) => `${v} %`], ['#ambient', '#ambVal', S.ambient, (v) => `${v} °C`], ['#boostTgt', '#boostTgtVal', S.boostTarget, (v) => `${(+v).toFixed(2)} bar`]];
     for (const [sel, valSel, v, fmt] of pairs) { const el = $(sel); el.value = v; $(valSel).textContent = fmt(v); this.setRange(el, v); }
   };
@@ -483,6 +535,7 @@
 
   // ---------- ECU brain ----------
   UI.prototype.renderBrain = function (S) {
+    if (S.E.diesel) return this.renderBrainDiesel(S);
     const E = S.E, pill = $('#modePill');
     let mode, cls = '';
     if (!S.ecuOn) mode = 'ECU OFF';
@@ -554,6 +607,62 @@
         S.boostTargetKpa < 5 ? T('No boost requested → wastegate open, turbo idling.') : b < (S.boostTargetKpa / 100) * 0.85 ? T('Turbo spooling up (lag) → wastegate held shut so all exhaust drives the turbine.') : T('On target → wastegate modulated to bleed off excess exhaust energy.'),
         T('WG flap {w} % open · turbo {n} krpm · charge {c} °C (compressor out {o} °C)', { w: (S.wgPos * 100).toFixed(0), n: S.turbo.toFixed(0), c: S.chargeT.toFixed(0), o: S.compOutT.toFixed(0) }), 'var(--hot)'));
     }
+    $('#brain').innerHTML = h.join('');
+  };
+
+  UI.prototype.renderBrainDiesel = function (S) {
+    const E = S.E, pill = $('#modePill');
+    let mode = 'ECU OFF', cls = '';
+    if (!S.ecuOn) mode = 'ECU OFF';
+    else if (S.glowPhase === 'pre') { mode = 'PRE-GLOW'; cls = 'warn'; }
+    else if (S.cranking && !S.running) { mode = 'CRANKING'; cls = 'warn'; }
+    else if (!S.running) mode = 'STANDBY';
+    else if (S.limiter === 'limp') { mode = 'LIMP HOME'; cls = 'bad'; }
+    else if (S.regen) { mode = 'DPF REGENERATION'; cls = 'warn'; }
+    else if (S.limiter === 'cut') { mode = 'OVERRUN CUT'; cls = 'run'; }
+    else if (S.limiter === 'idle') { mode = 'IDLE'; cls = 'run'; }
+    else if (S.limiter === 'smoke') { mode = 'SMOKE LIMITED'; cls = 'warn'; }
+    else if (S.limiter === 'torque') { mode = 'FULL LOAD'; cls = 'warn'; }
+    else { mode = 'PART LOAD'; cls = 'run'; }
+    pill.textContent = T(mode);
+    pill.className = 'mode-pill ' + cls;
+    const step = (title, status, body, calc, col) => `<div class="bstep" style="--c:${col}"><div class="bt"><span>${T(title)}</span><span class="st">${status || ''}</span></div>${body ? `<div class="bb">${body}</div>` : ''}${calc ? `<div class="calc">${calc}</div>` : ''}</div>`;
+    const h = [];
+    if (!S.ecuOn) {
+      h.push(step('Standby', '', T('The diesel ECU is unpowered. Turn the key to <b>ON</b>: bulb check, and if the engine is cold the glow plugs pre-heat the cylinders.'), '', 'var(--dim)'));
+      $('#brain').innerHTML = h.join('');
+      return;
+    }
+    const rpmS = S.sens.rpm || 0;
+    if (S.glowOn || S.glowPhase === 'pre') {
+      h.push(step('Glow plugs', T(S.glowPhase === 'pre' ? 'pre-glow' : S.glowPhase === 'post' ? 'post-glow' : 'ready'),
+        S.glowPhase === 'pre' ? T('Cold engine: compression alone may not reach the ~500 °C diesel needs to self-ignite. Pre-heating {s} s more — then crank.', { s: Math.max(0, S.glowT).toFixed(1) }) : T('Post-glow keeps the chambers hot after a cold start: less white smoke, less knocking noise.'),
+        T('plug temperature {p} %', { p: (S.glowTemp * 100).toFixed(0) }), 'var(--hot)'));
+    }
+    h.push(step('1 · Where is the crank?', S.sync === 2 ? T('FULL SYNC') : S.sync === 1 ? T('CRANK ONLY') : T('NO SYNC'),
+      S.sync === 2 ? T('CKP gap + CMP pulse → the ECU knows which cylinder is on compression. Injection is only possible with full sync.') : S.sync === 1 ? T('Gap found, waiting for the cam pulse…') : rpmS > 30 ? T('Counting teeth, looking for the missing-tooth gap…') : T('No crank rotation.'),
+      T('RPM from tooth period: <b>{r} rpm</b>', { r: rpmS.toFixed(0) }), S.sync === 2 ? 'var(--ok)' : 'var(--warn)'));
+    const LIM = ECU.DIESEL_LIMITERS;
+    h.push(step('2 · How much fuel? (no throttle!)', `${S.qMg.toFixed(1)} mg · ${T(LIM[S.limiter] || S.limiter)}`,
+      S.pedal < 1 ? T('Foot off: the idle governor sets the quantity to hold {r} rpm (error {e} rpm).', { r: S.idleTarget.toFixed(0), e: (S.idleTarget - rpmS >= 0 ? '+' : '') + (S.idleTarget - rpmS).toFixed(0) }) : T('Pedal {p} % → driver’s wish map → {q} mg per stroke. A diesel controls torque with fuel quantity; the air is simply whatever the turbo delivers.', { p: S.pedal.toFixed(0), q: S.qDriver.toFixed(1) }),
+      T('wish {w} · smoke limit {s} · torque limit {t} → <b>{q} mg</b>', { w: (S.pedal < 1 ? S.qIdle : S.qDriver).toFixed(1), s: Math.min(S.qSmoke, 99).toFixed(1), t: S.qTorque.toFixed(1), q: S.qMg.toFixed(1) }),
+      S.limiter === 'smoke' || S.limiter === 'limp' ? 'var(--warn)' : 'var(--fuel)'));
+    h.push(step('3 · Smoke limiter', `λ ${S.lambdaTarget > 8 ? '>8' : S.lambdaTarget.toFixed(2)}`,
+      T('Never inject more than the measured air can burn cleanly: q ≤ air ÷ (14.5 × 1.2). With the turbo not yet spooled this is what limits acceleration — and prevents black smoke.'),
+      T('MAF {m} g/s ÷ ({r} rpm ÷ 30) = {a} mg air/stroke → max {q} mg fuel', { m: S.sens.maf.toFixed(1), r: rpmS.toFixed(0), a: (S.airCylMeas * 1000).toFixed(0), q: Math.min(S.qSmoke, 99).toFixed(1) }), 'var(--air)'));
+    h.push(step('4 · EGR (closed loop on the MAF)', S.egrPos > 0.05 ? T('{p} % open', { p: (S.egrPos * 100).toFixed(0) }) : T('closed'),
+      S.mafTarget > 0 ? T('Too much fresh air → more EGR. The ECU opens the valve until the MAF drops to the fresh-air setpoint. Recirculated exhaust lowers combustion temperature and NOx.') : T('EGR closed: full load, regeneration, overrun or cold engine — every gram of oxygen is needed.'),
+      S.mafTarget > 0 ? T('setpoint {s} mg · measured {m} mg · EGR rate {e} %', { s: (S.mafTarget * 1000).toFixed(0), m: (S.airCylMeas * 1000).toFixed(0), e: (S.egrRate * 100).toFixed(0) }) : '', 'var(--exh)'));
+    const b = (S.boostP - S.baro) / 100;
+    h.push(step('5 · Boost (VGT)', `${b >= 0 ? '+' : ''}${b.toFixed(2)} / ${(S.boostTargetKpa / 100).toFixed(2)} bar`,
+      S.boostTargetKpa < 5 ? T('Low load: vanes open, no boost needed.') : b < (S.boostTargetKpa / 100) * 0.85 ? T('Vanes closed: the small exhaust flow is accelerated onto the turbine wheel so boost builds quickly.') : T('On target: vanes opened just enough to hold the boost without excess back-pressure.'),
+      T('vanes {o} % open · target from boost map (rpm × fuel)', { o: (S.wgPos * 100).toFixed(0) }), 'var(--hot)'));
+    h.push(step('6 · Rail pressure & injection', `${S.rail.toFixed(0)} / ${S.railTarget.toFixed(0)} bar`,
+      T('Higher rail pressure atomises the fuel finer (less soot) and injects it faster. {pilot}Main injection at <b>{soi}° BTDC</b>.', { pilot: S.pilot ? T('A pilot injection at {p}° BTDC pre-heats the chamber so the main burns softly (less clatter). ', { p: S.pilotSoi.toFixed(1) }) : '', soi: S.soi.toFixed(1) }),
+      T('{q} mg ÷ {f} mg/ms = <b>{pw} ms</b> injector opening', { q: S.qMg.toFixed(1), f: (15 * Math.sqrt(Math.max(S.rail, 100) / 100)).toFixed(1), pw: S.pw.toFixed(2) }) + (S.postMg > 0 ? ' · ' + T('post {p} mg', { p: S.postMg.toFixed(1) }) : ''), 'var(--fuel)'));
+    h.push(step('7 · Emissions & DPF', S.regen ? T('REGENERATING') : T('soot ≈ {g} g', { g: S.sootEst.toFixed(1) }),
+      S.regen ? T('Active regeneration: late post-injections burn on the oxidation catalyst and heat the filter to ~600 °C so the soot burns off. Idle raised, fan on.') : T('Soot collects in the particulate filter; the ECU estimates it from the pressure drop. At ~24 g it starts an active regeneration.'),
+      T('λ {l} · NOx ≈ {n} ppm · ΔP {p} mbar · DPF {t} °C', { l: S.lambda > 8 ? '>8' : S.lambda.toFixed(2), n: S.nox.toFixed(0), p: S.dpfDp.toFixed(0), t: S.dpfT.toFixed(0) }), S.regen ? 'var(--cam)' : 'var(--dim)'));
     $('#brain').innerHTML = h.join('');
   };
 
@@ -643,7 +752,7 @@
       }
       document.querySelectorAll('#engineSel button').forEach((x) => x.classList.toggle('active', x === b));
       app.setEngine(b.dataset.engine);
-      for (const f of ECU.FAULTS) this.faultEls[f.id].classList.remove('on');
+      for (const f of ECU.FAULTS) if (this.faultEls[f.id]) this.faultEls[f.id].classList.remove('on');
     }));
     document.querySelectorAll('#speedSel button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#speedSel button').forEach((x) => x.classList.toggle('active', x === b));

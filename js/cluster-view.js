@@ -16,7 +16,8 @@
     ctx.clearRect(0, 0, w, H);
     const d = this.disp, k = 1 - Math.exp(-dt / 0.06);
     // needle sweep at key-on (sweep = 0..1..0, or -1 when inactive)
-    d.rpm += ((sweep >= 0 ? sweep * 8000 : S.rpm) - d.rpm) * k;
+    const rMax = S.E.diesel ? 6000 : 8000; // diesel tach reads to 6000 rpm
+    d.rpm += ((sweep >= 0 ? sweep * rMax : S.rpm) - d.rpm) * k;
     d.v += ((sweep >= 0 ? sweep * 240 : S.v * 3.6) - d.v) * k;
     d.map += (S.map - d.map) * k;
     const E = S.E;
@@ -24,8 +25,8 @@
     const R = narrow ? Math.min(92, w * 0.22) : Math.min(96, w * 0.14);
     const tachX = narrow ? w * 0.26 : w * 0.19, speedX = narrow ? w * 0.74 : w * 0.81, gy = narrow ? 108 : 112;
 
-    this.gauge(ctx, tachX, gy, R, d.rpm / 8000, {
-      major: 9, minor: 4, labels: (i) => String(i), red: E.redline / 8000, unit: T('×1000 rpm'),
+    this.gauge(ctx, tachX, gy, R, d.rpm / rMax, {
+      major: rMax / 1000 + 1, minor: 4, labels: (i) => String(i), red: E.redline / rMax, unit: T('×1000 rpm'),
       big: Math.round(d.rpm / 10) * 10, bigUnit: 'rpm', col: C.accent, lit: S.ecuOn,
     });
     this.gauge(ctx, speedX, gy, R, d.v / 240, {
@@ -38,7 +39,7 @@
       const bar = (d.map - S.baro) / 100;
       this.gauge(ctx, cxm, cym, Rm, (bar + 1) / 2.8, {
         major: 7, minor: 2, labels: (i) => (i * 0.4 - 1 === 0 ? '0' : (i * 0.4 - 1).toFixed(1)), unit: T('boost bar'), big: bar.toFixed(2), bigUnit: 'bar', col: C.hot, lit: S.ecuOn,
-        zeroAt: 1 / 2.8, small: true, red: (S.boostTarget + 0.35 + 1) / 2.8,
+        zeroAt: 1 / 2.8, small: true, red: ((E.diesel ? 1.25 : S.boostTarget) + 0.35 + 1) / 2.8,
       });
     } else {
       this.gauge(ctx, cxm, cym, Rm, d.map / 120, {

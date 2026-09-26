@@ -92,6 +92,7 @@
     return { x, y, z, base: z.map((row) => row.slice()) };
   }
   function makeCal(E) {
+    if (E.diesel) return ECU.makeDieselCal(E, { table, mbt });
     const load = E.turbo ? AX.loadT : AX.loadNA;
     const cal = {
       // spark advance (°BTDC) at reference conditions: 25 °C intake, 90 °C coolant, 95 RON, 1.5° knock margin
@@ -174,6 +175,7 @@
       S.log = prev.log;
       S.logSeq = prev.logSeq;
     }
+    if (E.diesel) ECU.initDiesel(S);
     resetMonitors(S);
     return S;
   }
@@ -202,7 +204,9 @@
   // OBD readiness monitors: continuous ones (misfire, fuel system checks, components) are always
   // complete; the others complete once the ECU has actually run the test since codes were cleared.
   function resetMonitors(S) {
-    S.monitors = { misfire: true, comp: true, fuel: false, cat: false, o2: false, o2heater: false };
+    S.monitors = S.E.diesel
+      ? { misfire: true, comp: true, fuel: false, cat: false, boost: false, exhaust: false, pm: false, egr: false }
+      : { misfire: true, comp: true, fuel: false, cat: false, o2: false, o2heater: false };
     S.clTime = 0;
     S.o2Total = 0;
   }
@@ -233,30 +237,159 @@
 
   function noise(a) { return (Math.random() - 0.5) * 2 * a; }
 
-  function step(S, dt) {
-    if (!(dt > 0)) return; // several terms divide by dt
-    const E = S.E, F = S.faults;
-    S.t += dt;
-
-    /* ================= KEY / ECU POWER ================= */
+  /* ---------- shared physics (used by the petrol step and js/diesel.js) ---------- */
+  function keyPower(S, dt) {
     const powered = S.key === 'ON' || S.key === 'START';
     if (powered && !S.ecuOn) {
       S.ecuOn = true; S.bootT = 0; S.primeT = 2.0;
       S.baro = 101.3;
-      log(S, 'Key ON → ECU boots, self-test & bulb check. BARO learned from MAP. Fuel pump primes the rail for 2 s.', 'info');
+      log(S, S.E.diesel ? 'Key ON → diesel ECU boots, bulb check. Low-pressure pump primes the high-pressure pump; glow plugs heat if the engine is cold.' : 'Key ON → ECU boots, self-test & bulb check. BARO learned from MAP. Fuel pump primes the rail for 2 s.', 'info');
     }
     if (!powered && S.ecuOn) {
       S.ecuOn = false; S.sync = 0; S.syncAngle = 0; S.closedLoop = false; S.fuelPump = false;
-      log(S, 'Key OFF → ECU shuts injectors, coils and fuel pump.', 'info');
+      log(S, S.E.diesel ? 'Key OFF → ECU closes the injectors and the rail pressure valve; the engine stops.' : 'Key OFF → ECU shuts injectors, coils and fuel pump.', 'info');
     }
     if (S.ecuOn) S.bootT += dt;
-
-    const T_ambK = S.ambient + 273.15;
-    const omega = (S.rpm * Math.PI) / 30;
-
-    /* ================= THROTTLE ACTUATOR ================= */
-    const dynoOn = S.dyno && (S.dyno.phase === 'settle' || S.dyno.phase === 'pull');
+    const dynoOn = !!(S.dyno && (S.dyno.phase === 'settle' || S.dyno.phase === 'pull'));
     if (dynoOn) { S.pedal = 100; S.gear = 0; S.brake = false; } // the dyno operator holds WOT in neutral
+    return { T_ambK: S.ambient + 273.15, dynoOn };
+  }
+
+  // friction, pumping, accessories, starter, compression pulses, torque-converter coupling, crank dynamics
+  function rotation(S, dt, Tind, dynoOn, isMisfiring) {
+    const E = S.E, F = S.faults;
+    const omega = (S.rpm * Math.PI) / 30;
+    const cold = 1 + Math.max(0, 60 - S.oilT) / 90;
+    const Tfric = S.rpm > 0.5 ? (7 + 0.0028 * S.rpm + 2.5e-7 * S.rpm * S.rpm) * cold * (E.fricK || 1) : 0;
+    const Tpump = S.rpm > 0.5 ? (Math.max(0, S.baro - S.map) * 1000 * E.vd) / PI4 : 0;
+
+    S.elecW = (S.ecuOn ? 180 : 0) + (S.fuelPump ? 110 : 0) + (S.lights ? 140 : 0) + (S.fan ? 260 : 0) + (S.ac ? 150 : 0) + (S.running ? 60 : 0) + (S.glowOn ? 480 : 0);
+    const charging = S.rpm > 550 && !F.alt;
+    S.charging = charging;
+    const Talt = charging ? Math.min(S.elecW / (Math.max(omega, 50) * 0.55) + 2, 22) : 0;
+    const Tac = S.ac && S.running ? 10 + S.rpm * 0.0015 : 0;
+
+    S.cranking = S.key === 'START';
+    const Tst = S.cranking ? Math.max(0, (E.starterT || 115) * (1 - S.rpm / 320)) : 0;
+    const Tcomp = S.rpm > 1 && S.rpm < 700 ? -(E.compPulse || 22) * Math.sin((2 * S.crank * Math.PI) / 180) * (S.map / 100) : 0;
+
+    // torque converter style coupling to the car
+    let Tc = 0;
+    const g = S.gear;
+    if (g > 0 && S.rpm > 1) {
+      const wIn = (S.v / RW) * GEAR_RATIOS[g] * FINAL;
+      const sr = wIn / Math.max(omega, 1);
+      Tc = (S.rpm / 165) ** 2 * clamp((1 - sr) * 4, -2.5, 1);
+    }
+
+    S.torqueInd = Tind;
+    S.torque = Tind - Tfric - Tpump;
+    const Tnet = Tind - Tfric - Tpump - Talt - Tac - Tc + Tst + Tcomp;
+    let newOmega = omega + (Tnet / J_ENG) * dt;
+    if (S.rpm < 120 && !S.cranking && Tind < 5) newOmega -= 60 * dt;
+    newOmega = Math.max(0, newOmega);
+    if (dynoOn && S.rpm > 300) newOmega = (S.dyno.rpm * Math.PI) / 30; // dyno absorbs the torque and dictates speed
+    S.rpm = (newOmega * 30) / Math.PI;
+    S.crank = (S.crank + S.rpm * 6 * dt) % 720;
+    S.power = Math.max(0, S.torque) * newOmega / 1000;
+
+    // misfiring cylinders → crank speed dips (scope "crank speed" row)
+    for (let c = 0; c < 4; c++) {
+      const target = isMisfiring(c) ? -1 : 0;
+      S.crankJitter[c] += (target - S.crankJitter[c]) * (1 - Math.exp(-dt / 0.2));
+    }
+    vehicleStep(S, dt, Tc);
+  }
+
+  function vehicleStep(S, dt, Tc) {
+    const g = S.gear;
+    const Fdrive = g > 0 ? (Tc * GEAR_RATIOS[g] * FINAL * 0.9) / RW : 0;
+    const Faero = 0.5 * 1.2 * 0.62 * S.v * S.v;
+    const Fgrade = MASS * 9.81 * S.grade / 100;
+    const Froll = 190;
+    const Fbrake = S.brake ? 9500 : 0;
+    let net = Fdrive - Faero - Fgrade;
+    if (S.v > 0.05) net -= Froll + Fbrake;
+    else if (Math.abs(net) < Froll + Fbrake) net = 0;
+    S.v = Math.max(0, S.v + (net / (MASS * 1.08)) * dt);
+  }
+
+  // turbocharger: wgPos = wastegate opening (petrol) or VGT vane opening (diesel); 1 = least boost
+  function turboStep(S, dt, T_ambK) {
+    const E = S.E, F = S.faults;
+    const exh = S.airGs + S.fuelRateGs + (S.egrGs || 0);
+    const egtF = (S.egt + 273) / 1100;
+    const x = Math.max(exh, 0) / (E.turboFlowRef || 100);
+    // wastegate: bypassed exhaust is simply lost; VGT: closing the vanes accelerates a small flow onto the wheel
+    const shape = E.diesel ? Math.pow(x, 0.55) * (0.25 + 0.95 * (1 - S.wgPos)) : Math.pow(x, 0.8) * (1 - 0.85 * S.wgPos);
+    const tgt = (E.turboMax || 215) * clamp(shape * Math.sqrt(Math.max(egtF, 0.2)), 0, 1.12);
+    const tau = tgt > S.turbo ? (E.turboTau || 0.85) : 1.8;
+    S.turbo += (tgt - S.turbo) * (1 - Math.exp(-dt / tau));
+    let boostRel = (E.boostK || 180) * (S.turbo / 200) ** 2;
+    if (F.boostleak) boostRel = Math.min(boostRel * 0.6, 50);
+    if (!E.diesel) {
+      // blow-off valve: throttle snapped shut while pressurised
+      const bovCond = S.throttle < 15 && S.map < S.boostP - 20;
+      if (!S.bovOpen && bovCond && S.boostP - S.baro > 25) {
+        S.bovOpen = true;
+        log(S, 'Throttle closed under boost → blow-off valve vents the charge pipe (prevents compressor surge). Pssht!', 'info');
+      }
+      if (S.bovOpen && !bovCond) S.bovOpen = false;
+      S.bovT = S.bovOpen ? 0.6 : Math.max(0, S.bovT - dt);
+      if (S.bovOpen) boostRel = Math.min(boostRel, 4);
+    }
+    S.boostP += (S.baro + boostRel - S.boostP) * (1 - Math.exp(-dt / 0.08));
+    const PR = S.boostP / S.baro;
+    const T2 = T_ambK * (1 + (Math.pow(PR, 0.2857) - 1) / 0.7);
+    S.compOutT = T2 - 273.15;
+    const icT = T2 - 0.75 * (T2 - T_ambK) + 6 * Math.exp(-S.airGs / 20);
+    S.chargeT += (icT - 273.15 - S.chargeT) * (1 - Math.exp(-dt / 2.0));
+    // wastegate / VGT actuator
+    const wgGoal = F.wgstuck || F.vgtstuck ? 0 : S.wgCmd;
+    S.wgPos += (wgGoal - S.wgPos) * (1 - Math.exp(-dt / 0.15));
+    S.iat = S.chargeT + 3;
+  }
+
+  // coolant, oil, battery, fuel level  (thermal behaviour is sped up ~8× so warm-up is watchable)
+  function fluidsStep(S, dt, loadN) {
+    const F = S.faults;
+    const heatIn = (S.E.heatK || 6900) * Math.pow(S.fuelRateGs, 0.6) + (S.ac && S.running ? 1200 : 0);
+    const thermoOpen = F.thermostat ? 1 : clamp((S.ect - 86) / 8, 0, 1);
+    const airF = 0.25 + (S.v / 25) + (S.fan ? 1.0 : 0);
+    const radLoss = 520 * thermoOpen * (S.ect - S.ambient) * airF;
+    const baseLoss = 14 * (S.ect - S.ambient);
+    S.ect += ((heatIn - radLoss - baseLoss) / 1900) * dt;
+    const oilTarget = S.running ? S.ect + 6 + 12 * clamp(loadN, 0, 1.5) : S.ect;
+    S.oilT += (oilTarget - S.oilT) * (dt / 14);
+
+    if (S.rpm > 100) {
+      const base = Math.min(6.0, 0.9 + (S.rpm / 1000) * 1.05);
+      const visc = clamp(1.35 - (S.oilT - 20) * 0.0062, 0.78, 1.6);
+      const p = base * visc * (F.oil ? 0.26 : 1);
+      S.oilP += (p - S.oilP) * (1 - Math.exp(-dt / 0.2));
+    } else S.oilP += (0 - S.oilP) * (1 - Math.exp(-dt / 0.3));
+
+    // battery
+    let vt;
+    if (S.cranking && S.ecuOn) vt = 9.9 + noise(0.25);
+    else if (S.charging) vt = 14.35 - S.elecW / 4000;
+    else {
+      if (S.ecuOn) S.soc = Math.max(0, S.soc - (S.elecW / 12) * dt / 36000 * 40);
+      vt = 11.7 + 0.95 * S.soc - (S.ecuOn ? S.elecW / 2200 : 0);
+    }
+    if (S.charging) S.soc = Math.min(1, S.soc + dt * 0.01);
+    S.vbat += (vt - S.vbat) * (1 - Math.exp(-dt / 0.15));
+
+    S.fuelLevel = Math.max(0, S.fuelLevel - (S.fuelRateGs * dt) / (50 * 740) * 100);
+  }
+
+  function step(S, dt) {
+    if (!(dt > 0)) return; // several terms divide by dt
+    if (S.E.diesel) return ECU.stepDiesel(S, dt);
+    const E = S.E, F = S.faults;
+    S.t += dt;
+
+    const { T_ambK, dynoOn } = keyPower(S, dt);
     const thrTarget = S.ecuOn && !F.tps ? S.throttleCmd : 7; // spring "limp-home" position
     S.throttle += (thrTarget - S.throttle) * (1 - Math.exp(-dt / 0.035));
 
@@ -359,89 +492,10 @@
       S.knockRetard[c] = Math.max(0, S.knockRetard[c] - dt * 0.7);
     }
 
-    /* ================= LOADS & ROTATION ================= */
-    const cold = 1 + Math.max(0, 60 - S.oilT) / 90;
-    const Tfric = S.rpm > 0.5 ? (7 + 0.0028 * S.rpm + 2.5e-7 * S.rpm * S.rpm) * cold : 0;
-    const Tpump = S.rpm > 0.5 ? (Math.max(0, S.baro - S.map) * 1000 * E.vd) / PI4 : 0;
+    rotation(S, dt, Tind, dynoOn, (c) => canFire && ((F.misfire3 && c === 2) || S.injCut[c]));
 
-    S.elecW = (S.ecuOn ? 180 : 0) + (S.fuelPump ? 110 : 0) + (S.lights ? 140 : 0) + (S.fan ? 260 : 0) + (S.ac ? 150 : 0) + (S.running ? 60 : 0);
-    const charging = S.rpm > 550 && !F.alt;
-    const Talt = charging ? Math.min(S.elecW / (Math.max(omega, 50) * 0.55) + 2, 22) : 0;
-    const Tac = S.ac && S.running ? 10 + S.rpm * 0.0015 : 0;
-
-    S.cranking = S.key === 'START';
-    const Tst = S.cranking ? Math.max(0, 115 * (1 - S.rpm / 320)) : 0;
-    const Tcomp = S.rpm > 1 && S.rpm < 700 ? -22 * Math.sin((2 * S.crank * Math.PI) / 180) * (S.map / 100) : 0;
-
-    // torque converter style coupling to the car
-    let Tc = 0;
-    const g = S.gear;
-    if (g > 0 && S.rpm > 1) {
-      const wIn = (S.v / RW) * GEAR_RATIOS[g] * FINAL;
-      const sr = wIn / Math.max(omega, 1);
-      Tc = (S.rpm / 165) ** 2 * clamp((1 - sr) * 4, -2.5, 1);
-    }
-
-    S.torqueInd = Tind;
-    S.torque = Tind - Tfric - Tpump;
-    const Tnet = Tind - Tfric - Tpump - Talt - Tac - Tc + Tst + Tcomp;
-    let newOmega = omega + (Tnet / J_ENG) * dt;
-    if (S.rpm < 120 && !S.cranking && Tind < 5) newOmega -= 60 * dt;
-    newOmega = Math.max(0, newOmega);
-    if (dynoOn && S.rpm > 300) newOmega = (S.dyno.rpm * Math.PI) / 30; // dyno absorbs the torque and dictates speed
-    S.rpm = (newOmega * 30) / Math.PI;
-    S.crank = (S.crank + S.rpm * 6 * dt) % 720;
-    S.power = Math.max(0, S.torque) * newOmega / 1000;
-
-    // misfire → crank speed dips (used by scope "crank accel" row)
-    for (let c = 0; c < 4; c++) {
-      const mis = canFire && ((F.misfire3 && c === 2) || S.injCut[c]);
-      const target = mis ? -1 : 0;
-      S.crankJitter[c] += (target - S.crankJitter[c]) * (1 - Math.exp(-dt / 0.2));
-    }
-
-    /* ================= VEHICLE ================= */
-    {
-      const Fdrive = g > 0 ? (Tc * GEAR_RATIOS[g] * FINAL * 0.9) / RW : 0;
-      const Faero = 0.5 * 1.2 * 0.62 * S.v * S.v;
-      const Fgrade = MASS * 9.81 * S.grade / 100;
-      const Froll = 190;
-      const Fbrake = S.brake ? 9500 : 0;
-      let net = Fdrive - Faero - Fgrade;
-      if (S.v > 0.05) net -= Froll + Fbrake;
-      else if (Math.abs(net) < Froll + Fbrake) net = 0;
-      S.v = Math.max(0, S.v + (net / (MASS * 1.08)) * dt);
-    }
-
-    /* ================= TURBO ================= */
-    if (E.turbo) {
-      const exh = S.airGs + S.fuelRateGs;
-      const egtF = (S.egt + 273) / 1100;
-      const tgt = 215 * clamp(Math.pow(Math.max(exh, 0) / 100, 0.8) * Math.sqrt(Math.max(egtF, 0.2)) * (1 - 0.85 * S.wgPos), 0, 1.12);
-      const tau = tgt > S.turbo ? 0.85 : 1.8;
-      S.turbo += (tgt - S.turbo) * (1 - Math.exp(-dt / tau));
-      let boostRel = 180 * (S.turbo / 200) ** 2;
-      if (F.boostleak) boostRel = Math.min(boostRel * 0.6, 50);
-      // blow-off valve: throttle snapped shut while pressurised
-      const bovCond = S.throttle < 15 && S.map < S.boostP - 20;
-      if (!S.bovOpen && bovCond && S.boostP - S.baro > 25) {
-        S.bovOpen = true;
-        log(S, 'Throttle closed under boost → blow-off valve vents the charge pipe (prevents compressor surge). Pssht!', 'info');
-      }
-      if (S.bovOpen && !bovCond) S.bovOpen = false;
-      S.bovT = S.bovOpen ? 0.6 : Math.max(0, S.bovT - dt);
-      if (S.bovOpen) boostRel = Math.min(boostRel, 4);
-      S.boostP += (S.baro + boostRel - S.boostP) * (1 - Math.exp(-dt / 0.08));
-      const PR = S.boostP / S.baro;
-      const T2 = T_ambK * (1 + (Math.pow(PR, 0.2857) - 1) / 0.7);
-      S.compOutT = T2 - 273.15;
-      const icT = T2 - 0.75 * (T2 - T_ambK) + 6 * Math.exp(-S.airGs / 20);
-      S.chargeT += (icT - 273.15 - S.chargeT) * (1 - Math.exp(-dt / 2.0));
-      // wastegate actuator
-      const wgGoal = F.wgstuck ? 0 : S.wgCmd;
-      S.wgPos += (wgGoal - S.wgPos) * (1 - Math.exp(-dt / 0.15));
-      S.iat = S.chargeT + 3;
-    } else {
+    if (E.turbo) turboStep(S, dt, T_ambK);
+    else {
       S.boostP = S.baro;
       const it = S.ambient + 9 * Math.exp(-S.airGs / 18) + 0.07 * (S.ect - S.ambient);
       S.iat += (it - S.iat) * (1 - Math.exp(-dt / 3));
@@ -449,24 +503,8 @@
     }
 
     /* ================= TEMPERATURES / FLUIDS / ELECTRICAL ================= */
+    fluidsStep(S, dt, loadN);
     {
-      // (thermal behaviour is sped up ~8× so warm-up is watchable)
-      const heatIn = 6900 * Math.pow(S.fuelRateGs, 0.6) + (S.ac && S.running ? 1200 : 0);
-      const thermoOpen = F.thermostat ? 1 : clamp((S.ect - 86) / 8, 0, 1);
-      const airF = 0.25 + (S.v / 25) + (S.fan ? 1.0 : 0);
-      const radLoss = 520 * thermoOpen * (S.ect - S.ambient) * airF;
-      const baseLoss = 14 * (S.ect - S.ambient);
-      S.ect += ((heatIn - radLoss - baseLoss) / 1900) * dt;
-      const oilTarget = S.running ? S.ect + 6 + 12 * clamp(loadN, 0, 1.5) : S.ect;
-      S.oilT += (oilTarget - S.oilT) * (dt / 14);
-
-      if (S.rpm > 100) {
-        const base = Math.min(6.0, 0.9 + (S.rpm / 1000) * 1.05);
-        const visc = clamp(1.35 - (S.oilT - 20) * 0.0062, 0.78, 1.6);
-        const p = base * visc * (F.oil ? 0.26 : 1);
-        S.oilP += (p - S.oilP) * (1 - Math.exp(-dt / 0.2));
-      } else S.oilP += (0 - S.oilP) * (1 - Math.exp(-dt / 0.3));
-
       // EGT
       let egtT;
       if (S.fuelRateGs > 0 && S.rpm > 300) {
@@ -486,19 +524,6 @@
         S.fuelP += (fpT - S.fuelP) * (1 - Math.exp(-dt / 0.25));
       } else S.fuelP += (0.4 * S.fuelP - S.fuelP) * (1 - Math.exp(-dt / 20));
       S.fuelP = Math.max(0, S.fuelP);
-
-      // battery
-      let vt;
-      if (S.cranking && S.ecuOn) vt = 9.9 + noise(0.25);
-      else if (charging) vt = 14.35 - S.elecW / 4000;
-      else {
-        if (S.ecuOn) S.soc = Math.max(0, S.soc - (S.elecW / 12) * dt / 36000 * 40);
-        vt = 11.7 + 0.95 * S.soc - (S.ecuOn ? S.elecW / 2200 : 0);
-      }
-      if (charging) S.soc = Math.min(1, S.soc + dt * 0.01);
-      S.vbat += (vt - S.vbat) * (1 - Math.exp(-dt / 0.15));
-
-      S.fuelLevel = Math.max(0, S.fuelLevel - (S.fuelRateGs * dt) / (50 * 740) * 100);
     }
 
     /* ================= O2 SENSORS & CATALYST ================= */
@@ -830,6 +855,8 @@
   }
 
   ECU.step = step;
+  // shared internals for js/diesel.js
+  ECU._sim = { keyPower, rotation, turboStep, fluidsStep, dynoStep: (S, dt) => dynoStep(S, dt), log, edge, setDTC, veAt, orifice, interp2, noise, R, PI4, clamp, lerp };
 
   /* ---------- Engine dyno: speed-controlled full-throttle sweep ----------
      settle at the start speed, then ramp rpm at `rate` rpm/s and average the brake torque in

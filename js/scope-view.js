@@ -17,7 +17,7 @@
     this.hoverX = null;
   }
 
-  ScopeView.prototype.layout = function (w) {
+  ScopeView.prototype.layout = function (w, diesel) {
     const labelW = w < 700 ? 74 : 118;
     const x0 = labelW, x1 = w - 12;
     const rows = [];
@@ -31,10 +31,15 @@
     y += 8;
     for (let c = 0; c < 4; c++) add('inj' + c, 'Injector {c}', 17, { c, kind: 'inj', info: 'act:inj' });
     y += 8;
-    for (let c = 0; c < 4; c++) add('ign' + c, 'Coil {c}', 19, { c, kind: 'ign', info: 'act:coil' });
-    y += 8;
-    add('knock', 'Knock sensor', 44, { kind: 'knock', info: 'knock' });
-    y += 6;
+    if (diesel) {
+      add('rail', 'Rail pressure', 46, { kind: 'rail', info: 'rail' });
+      y += 6;
+    } else {
+      for (let c = 0; c < 4; c++) add('ign' + c, 'Coil {c}', 19, { c, kind: 'ign', info: 'act:coil' });
+      y += 8;
+      add('knock', 'Knock sensor', 44, { kind: 'knock', info: 'knock' });
+      y += 6;
+    }
     add('crank', 'Crank speed', 34, { kind: 'crank', info: 'ckp' });
     this.rows = rows;
     this.x0 = x0; this.x1 = x1;
@@ -55,7 +60,7 @@
 
   ScopeView.prototype.render = function (S, theta) {
     const w = this.canvas.clientWidth;
-    const H = this.layout(w);
+    const H = this.layout(w, S.E.diesel);
     const { ctx } = fit(this.canvas, H);
     ctx.clearRect(0, 0, w, H);
     const th = ((theta % 720) + 720) % 720;
@@ -93,9 +98,9 @@
     ctx.font = `600 ${small ? 9 : 10.5}px Inter, sans-serif`;
     for (const r of this.rows) {
       if (r.kind === 'stroke' && r.c > 0) continue;
-      const col = r.kind === 'inj' ? C.fuel : r.kind === 'ign' ? C.spark : r.kind === 'ckp' ? C.accent : r.kind === 'cmp' ? C.cam : r.kind === 'knock' ? '#ff8fa0' : r.kind === 'crank' ? C.info : C.muted;
+      const col = r.kind === 'rail' ? C.fuel : r.kind === 'inj' ? C.fuel : r.kind === 'ign' ? C.spark : r.kind === 'ckp' ? C.accent : r.kind === 'cmp' ? C.cam : r.kind === 'knock' ? '#ff8fa0' : r.kind === 'crank' ? C.info : C.muted;
       ctx.fillStyle = col;
-      const SHORT = { stroke: 'Strokes', ckp: 'CKP', cmp: 'CMP', inj: 'INJ {c}', ign: 'IGN {c}', knock: 'Knock', crank: 'ω crank' };
+      const SHORT = { stroke: 'Strokes', ckp: 'CKP', cmp: 'CMP', inj: 'INJ {c}', ign: 'IGN {c}', knock: 'Knock', crank: 'ω crank', rail: 'Rail' };
       const label = T(small ? SHORT[r.kind] : r.label, { c: r.c + 1 });
       const yy = r.kind === 'stroke' ? r.y + 30 : r.y + r.h / 2 + 4;
       ctx.fillText(label, 8, yy);
@@ -177,6 +182,58 @@
           ctx.stroke();
         });
         if (S.faults.cmp) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('NO SIGNAL — ECU in batch-fire / wasted-spark fallback'), x0 + 8, mid + 3); }
+      } else if (r.kind === 'inj' && S.E.diesel) {
+        const c = r.c;
+        const on = alive && S.qMg > 0 && S.sync === 2;
+        const base = r.y + r.h - 3, top = r.y + 3;
+        const pulses = [];
+        if (on) {
+          if (S.pilot) pulses.push([ECU.CYL_OFFSET[c] - S.pilotSoi, 3, 0.45, 'pilot']);
+          pulses.push([ECU.CYL_OFFSET[c] - S.soi, Math.max(2, Math.min(90, S.pw * degPerMs)), 1, 'main']);
+          if (S.postMg > 0) pulses.push([ECU.CYL_OFFSET[c] + 70, 10, 0.6, 'post']);
+        }
+        both(() => {
+          ctx.strokeStyle = C.fuel; ctx.lineWidth = 1.3;
+          ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x1, base); ctx.stroke();
+          for (const [a0, len, hgt, kind] of pulses) {
+            const g0 = ((a0 % 720) + 720) % 720;
+            for (const [pa, pb] of splitWrap(g0, g0 + len)) {
+              const xa = x0 + (pa / 720) * pw, xb = x0 + (pb / 720) * pw, yt = base - (base - top) * hgt;
+              ctx.fillStyle = kind === 'post' ? rgba(C.cam, 0.45) : rgba(C.fuel, 0.4);
+              ctx.fillRect(xa, yt, Math.max(1.5, xb - xa), base - yt);
+              ctx.strokeStyle = kind === 'post' ? C.cam : C.fuel;
+              ctx.beginPath(); ctx.moveTo(xa, base); ctx.lineTo(xa, yt); ctx.lineTo(xb, yt); ctx.lineTo(xb, base); ctx.stroke();
+            }
+          }
+        });
+        if (on && !small) {
+          const g1 = ((ECU.CYL_OFFSET[c] - S.soi) % 720 + 720) % 720;
+          ctx.fillStyle = C.fuel; ctx.font = '600 8.5px "JetBrains Mono", monospace';
+          const t = T('{q} mg @ {a}° BTDC', { q: S.qMg.toFixed(1), a: S.soi.toFixed(1) }) + (S.pilot ? ' · ' + T('pilot') : '') + (S.postMg > 0 ? ' · ' + T('post') : '');
+          const tx = this.xOf(g1) + 8;
+          ctx.fillText(t, tx > x1 - 170 ? this.xOf(g1) - ctx.measureText(t).width - 6 : tx, r.y + 10);
+        }
+      } else if (r.kind === 'rail') {
+        // rail pressure dips briefly at every main injection as the injector draws fuel
+        const lo = 0, hi = 2000;
+        const yOf = (bar) => r.y + r.h - 4 - ((bar - lo) / (hi - lo)) * (r.h - 8);
+        const dip = Math.min(120, S.qMg * 1.6);
+        both(() => {
+          ctx.strokeStyle = C.fuel; ctx.lineWidth = 1.4; ctx.beginPath();
+          for (let i = 0; i <= 720; i += 2) {
+            let v = alive ? S.rail : 0;
+            for (let c = 0; c < 4; c++) {
+              const d = ((i - (ECU.CYL_OFFSET[c] - S.soi)) % 720 + 720) % 720;
+              if (S.qMg > 0 && d < 40) v -= dip * Math.sin((d / 40) * Math.PI) * (d < 20 ? 1 : 0.6);
+            }
+            const x = x0 + (i / 720) * pw, y = yOf(v);
+            i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          }
+          ctx.stroke();
+          ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath(); ctx.moveTo(x0, yOf(S.railTarget)); ctx.lineTo(x1, yOf(S.railTarget)); ctx.stroke(); ctx.setLineDash([]);
+        });
+        if (!small) { ctx.fillStyle = C.fuel; ctx.font = '600 8.5px "JetBrains Mono", monospace'; ctx.fillText(T('{r} bar (target {t})', { r: S.rail.toFixed(0), t: S.railTarget.toFixed(0) }), x0 + 6, r.y + 10); }
       } else if (r.kind === 'inj') {
         const c = r.c;
         const on = alive && S.pw > 0 && !S.injCut[c] && !S.fuelCutAll && S.sync > 0;

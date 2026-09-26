@@ -7,7 +7,7 @@
   ECU.SENSOR_GROUPS = [
     { id: 'position', name: 'Engine position & speed' },
     { id: 'air', name: 'Air metering' },
-    { id: 'turbo', name: 'Turbo / charge air', turboOnly: true },
+    { id: 'turbo', name: 'Turbo / charge air' },
     { id: 'exhaust', name: 'Combustion & exhaust' },
     { id: 'temp', name: 'Temperatures & lubrication' },
     { id: 'fuel', name: 'Fuel system' },
@@ -72,7 +72,7 @@
       fail: 'Default 101.3 kPa used.',
     },
     {
-      id: 'o2up', group: 'exhaust', abbr: 'O2 S1', name: 'Upstream oxygen sensor (B1S1)', unit: 'V', tech: 'Zirconia (narrowband), heated',
+      id: 'o2up', group: 'exhaust', only: ['na', 'turbo'], abbr: 'O2 S1', name: 'Upstream oxygen sensor (B1S1)', unit: 'V', tech: 'Zirconia (narrowband), heated',
       what: 'Whether the exhaust is richer or leaner than stoichiometric (14.7 : 1 air-fuel ratio, λ = 1).',
       how: 'A zirconia ceramic thimble conducts oxygen ions when hot (>350 °C). The difference in oxygen between exhaust and outside air produces a voltage: ~0.9 V rich, ~0.1 V lean, with a steep switch right at λ = 1. A built-in heater gets it to temperature within seconds of starting.',
       ecu: 'The heart of CLOSED-LOOP fuel control. When the voltage reads rich the ECU ramps fuel down; when it reads lean it ramps fuel up. This makes the signal oscillate 1–2 times per second around λ = 1 — exactly what the catalyst needs.',
@@ -80,7 +80,7 @@
       fail: 'No switching → open-loop fuelling, MIL. DTC P0134.',
     },
     {
-      id: 'o2dn', group: 'exhaust', abbr: 'O2 S2', name: 'Downstream oxygen sensor (B1S2)', unit: 'V', tech: 'Zirconia (narrowband), heated',
+      id: 'o2dn', group: 'exhaust', only: ['na', 'turbo'], abbr: 'O2 S2', name: 'Downstream oxygen sensor (B1S2)', unit: 'V', tech: 'Zirconia (narrowband), heated',
       what: 'Oxygen content after the catalytic converter.',
       how: 'Same sensor type as upstream. A healthy catalyst stores and releases oxygen, smoothing out the upstream oscillation, so this sensor reads a steady ~0.6–0.7 V.',
       ecu: 'Catalyst efficiency monitor: if the downstream signal starts copying the upstream switching, the catalyst has lost its oxygen storage. Also used for a slow "outer" trim of the upstream loop.',
@@ -88,7 +88,7 @@
       fail: 'DTC P0420 (catalyst efficiency below threshold).',
     },
     {
-      id: 'knock', group: 'exhaust', abbr: 'KS', name: 'Knock sensor', unit: 'mV', tech: 'Piezoelectric accelerometer',
+      id: 'knock', group: 'exhaust', only: ['na', 'turbo'], abbr: 'KS', name: 'Knock sensor', unit: 'mV', tech: 'Piezoelectric accelerometer',
       what: 'Engine block vibration in the 5–15 kHz band — the "ping" of detonation, when unburnt mixture explodes spontaneously instead of burning smoothly.',
       how: 'A piezo crystal bolted to the block produces a voltage when shaken. The ECU only listens during a "knock window" (roughly 10–60° after each cylinder\'s TDC) and filters for the knock frequency, so it knows which cylinder knocked.',
       ecu: 'Individual-cylinder knock control: retards that cylinder\'s spark by 1.5–3° immediately, then creeps it back 0.5–1°/s. This lets the base map run close to the knock limit for efficiency.',
@@ -136,7 +136,7 @@
       fail: 'Substitute value.',
     },
     {
-      id: 'fuelp', group: 'fuel', abbr: 'FRP', name: 'Fuel rail pressure', unit: 'bar', tech: 'Strain-gauge transducer',
+      id: 'fuelp', group: 'fuel', only: ['na', 'turbo'], abbr: 'FRP', name: 'Fuel rail pressure', unit: 'bar', tech: 'Strain-gauge transducer',
       what: 'Fuel pressure feeding the injectors.',
       how: 'Diaphragm transducer on the fuel rail, 0.5–4.5 V output.',
       ecu: 'Injector flow depends on the pressure difference across it. The regulator keeps rail pressure a fixed amount above manifold pressure, so flow per millisecond is constant. If pressure drops, the ECU sees it and the engine runs lean.',
@@ -160,7 +160,7 @@
       fail: 'Gauge error.',
     },
     {
-      id: 'boost', group: 'turbo', abbr: 'BOOST', name: 'Boost / charge pressure', unit: 'kPa', tech: 'Silicon strain gauge (TMAP)', turboOnly: true,
+      id: 'boost', group: 'turbo', only: ['turbo', 'diesel'], abbr: 'BOOST', name: 'Boost / charge pressure', unit: 'kPa', tech: 'Silicon strain gauge (TMAP)',
       what: 'Pressure in the charge pipe after the intercooler, before the throttle.',
       how: 'Same technology as MAP but with a 0–300 kPa range.',
       ecu: 'Closed-loop boost control: compares actual boost to the target and drives the wastegate solenoid. Also detects overboost (safety cut) and underboost (leaks).',
@@ -168,7 +168,7 @@
       fail: 'Boost control disabled — wastegate held open.',
     },
     {
-      id: 'cat', group: 'turbo', abbr: 'CAT', name: 'Charge air temperature', unit: '°C', tech: 'NTC thermistor', turboOnly: true,
+      id: 'cat', group: 'turbo', only: ['turbo', 'diesel'], abbr: 'CAT', name: 'Charge air temperature', unit: '°C', tech: 'NTC thermistor',
       what: 'Air temperature after the intercooler.',
       how: 'NTC thermistor in the charge pipe.',
       ecu: 'Compressing air heats it (≈120 °C at 1 bar boost). The intercooler removes most of that heat. The ECU uses this for air density and knock protection, and reduces boost if charge air gets too hot.',
@@ -225,41 +225,130 @@
     },
   ];
 
+  // diesel-only sensors (2.0 TDI-style common rail)
+  ECU.SENSORS.push(
+    {
+      id: 'rail', group: 'fuel', only: ['diesel'], abbr: 'RP', name: 'Rail pressure (high pressure)', unit: 'bar', tech: 'Strain-gauge transducer, 0–2000 bar',
+      what: 'Fuel pressure in the common rail that feeds all four injectors — 250 bar at idle, up to 1800 bar at full load.',
+      how: 'A thick steel diaphragm with strain gauges, screwed into the end of the rail. Output 0.5–4.5 V.',
+      ecu: 'Closed-loop rail-pressure control: the ECU compares actual with target pressure and drives the pressure-control valve / metering unit. Higher pressure atomises the fuel finer (less soot) and lets the same quantity be injected in less time.',
+      typical: 'Idle 250–350 bar · cruise 600–1000 bar · full load 1600–1800 bar',
+      fail: 'Rail pressure deviation → limp mode. Low pressure under load points to the supply pump or a leaking injector (P0087 / P0093).',
+    },
+    {
+      id: 'fueltemp', group: 'fuel', only: ['diesel'], abbr: 'FT', name: 'Fuel temperature', unit: '°C', tech: 'NTC thermistor',
+      what: 'Temperature of the diesel in the high-pressure system.',
+      how: 'NTC thermistor in the fuel return or pump housing. Compressing fuel to 1800 bar heats it.',
+      ecu: 'Fuel density falls as it warms, so the ECU corrects the injected quantity. Very hot fuel reduces the rail pressure allowed.',
+      typical: 'Ambient + 20–50 °C',
+      fail: 'Substitute value.',
+    },
+    {
+      id: 'lam', group: 'exhaust', only: ['diesel'], abbr: 'λ WB', name: 'Wideband lambda sensor', unit: 'λ', tech: 'Planar wideband (pump cell)',
+      what: 'The exact air-fuel ratio of the lean diesel exhaust — λ 1.2 at full load up to λ 5+ at idle.',
+      how: 'A pump cell moves oxygen ions to hold a reference cell at λ = 1; the pump current is proportional to the exhaust oxygen content, so it measures any λ, not just rich/lean.',
+      ecu: 'Corrects the MAF reading and the smoke limiter, and checks injector quantity drift. A diesel never runs at λ = 1 — there is no switching closed loop.',
+      typical: 'Idle λ 3–6 · full load λ 1.2–1.4',
+      fail: 'Substitute air model, reduced torque.',
+    },
+    {
+      id: 'egt2', group: 'exhaust', only: ['diesel'], abbr: 'EGT2', name: 'DPF inlet temperature', unit: '°C', tech: 'Thermocouple / PTC',
+      what: 'Exhaust temperature after the oxidation catalyst (DOC), just before the particulate filter.',
+      how: 'Same type of sensor as the pre-turbine EGT.',
+      ecu: 'Controls active regeneration: post-injected fuel burns on the DOC and raises this temperature to ~600 °C so the soot in the DPF burns off.',
+      typical: 'Normal driving 200–450 °C · regeneration 580–650 °C',
+      fail: 'Regeneration disabled.',
+    },
+    {
+      id: 'dpfdp', group: 'exhaust', only: ['diesel'], abbr: 'ΔP', name: 'DPF differential pressure', unit: 'mbar', tech: 'Differential pressure sensor',
+      what: 'The pressure drop across the diesel particulate filter.',
+      how: 'Two hoses — before and after the filter — go to one differential sensor. The more soot, the higher the pressure drop for a given exhaust flow.',
+      ecu: 'Estimates the soot load (together with a soot-production model). When the filter is ~24 g full, the ECU starts an active regeneration; above ~45 g it lights the DPF lamp and limits power.',
+      typical: 'Idle 5–20 mbar · full load 50–250 mbar (rises with soot)',
+      fail: 'Soot estimated from the model only. DTC P2463 if the filter is overloaded.',
+    },
+    {
+      id: 'egrpos', group: 'air', only: ['diesel'], abbr: 'EGR', name: 'EGR valve position', unit: '%', tech: 'Hall position sensor',
+      what: 'How far the exhaust gas recirculation valve is open.',
+      how: 'Hall sensor on the valve shaft; the valve is moved by an electric motor.',
+      ecu: 'EGR feeds cooled exhaust back into the intake. It displaces oxygen, lowering combustion temperature and NOx. The ECU opens the valve until the MAF reading drops to its fresh-air setpoint.',
+      typical: 'Idle / part load 20–60 % · full load 0 %',
+      fail: 'Stuck open → smoke and low power (P0402). Stuck closed → high NOx, MAF above target (P0401).',
+    },
+    {
+      id: 'vgtpos', group: 'turbo', only: ['diesel'], abbr: 'VGT', name: 'VGT vane position', unit: '% open', tech: 'Position sensor on the vane actuator',
+      what: 'The position of the variable-geometry turbine vanes.',
+      how: 'Movable vanes around the turbine wheel change the effective nozzle size. Closed vanes speed up the exhaust flow onto the wheel → more boost at low rpm; open vanes reduce back-pressure at high rpm.',
+      ecu: 'Closed-loop boost control: like a wastegate, but instead of dumping exhaust it changes how hard the exhaust drives the turbine — so there is almost no turbo lag.',
+      typical: 'Idle open · low-rpm full load mostly closed · high rpm partly open',
+      fail: 'Stuck closed → overboost and limp mode (P0234); stuck open → no boost (P0299).',
+    },
+  );
+  ECU.SENSORS.find((s) => s.id === 'turbo').only = ['turbo'];
+  ECU.SENSORS.find((s) => s.id === 'wgpos').only = ['turbo'];
+
   ECU.ACTUATORS = [
-    { id: 'inj', name: 'Fuel injectors ×4', desc: 'Solenoid valves spraying fuel into each intake port. The ECU controls how long they stay open (pulse width) and when (injection timing, in crank degrees). Sequential: each cylinder injects once per cycle, just before its intake valve opens.' },
-    { id: 'coil', name: 'Ignition coils ×4', desc: 'Coil-on-plug. The ECU switches current through the primary winding for the "dwell" time to build a magnetic field, then cuts it — the collapsing field induces 25–40 kV in the secondary and the plug sparks. Spark advance = degrees before TDC.' },
+    { id: 'inj', name: 'Fuel injectors ×4', only: ['na', 'turbo'], desc: 'Solenoid valves spraying fuel into each intake port. The ECU controls how long they stay open (pulse width) and when (injection timing, in crank degrees). Sequential: each cylinder injects once per cycle, just before its intake valve opens.' },
+    { id: 'coil', name: 'Ignition coils ×4', only: ['na', 'turbo'], desc: 'Coil-on-plug. The ECU switches current through the primary winding for the "dwell" time to build a magnetic field, then cuts it — the collapsing field induces 25–40 kV in the secondary and the plug sparks. Spark advance = degrees before TDC.' },
     { id: 'etc', name: 'Electronic throttle (ETC)', desc: 'A DC motor positions the throttle plate. The ECU closes a position loop using the dual TPS tracks. At idle the ECU itself opens the throttle a few percent to hold the target idle speed.' },
     { id: 'pump', name: 'Fuel pump relay', desc: 'Primes the rail for 2 s at key-on, then only runs while the ECU sees crank pulses (safety: stops fuel if the engine stalls or after a crash).' },
     { id: 'fan', name: 'Radiator fan', desc: 'Switched on above ~98 °C coolant, off below ~93 °C (hysteresis), and whenever the A/C is on.' },
-    { id: 'vvt', name: 'VVT oil control valve', desc: 'Directs oil pressure to the cam phaser to advance or retard the intake camshaft. More advance at mid RPM/load improves torque and adds internal EGR.' },
+    { id: 'vvt', name: 'VVT oil control valve', only: ['na', 'turbo'], desc: 'Directs oil pressure to the cam phaser to advance or retard the intake camshaft. More advance at mid RPM/load improves torque and adds internal EGR.' },
     { id: 'wg', name: 'Wastegate solenoid', desc: 'PWM valve controlling the wastegate actuator. Higher duty holds the wastegate shut to build boost.', turboOnly: true },
     { id: 'bov', name: 'Blow-off / diverter valve', desc: 'When the throttle snaps shut under boost, the pressurised air has nowhere to go. The valve vents it to prevent compressor surge (the classic "pssht").', turboOnly: true },
-    { id: 'o2h', name: 'O2 sensor heaters', desc: 'Resistive heaters bring the zirconia elements to 600–750 °C within seconds so closed-loop control can start early.' },
+    { id: 'o2h', name: 'O2 sensor heaters', only: ['na', 'turbo'], desc: 'Resistive heaters bring the zirconia elements to 600–750 °C within seconds so closed-loop control can start early.' },
     { id: 'alt', name: 'Alternator field control', desc: 'Regulates charging voltage around 14 V; charging adds torque load on the crankshaft.' },
     { id: 'acc', name: 'A/C compressor clutch', desc: 'Engaged after the idle speed has been raised.' },
     { id: 'mil', name: 'MIL (check-engine lamp)', desc: 'Lit by emissions-relevant faults. Flashes during catalyst-damaging misfire.' },
   ];
 
+  // diesel actuators are appended after the list below
   ECU.FAULTS = [
     { id: 'ckp', name: 'CKP sensor open circuit', dtc: 'P0335', hint: 'No crank signal → no spark, no fuel. Engine dies.' },
     { id: 'cmp', name: 'CMP sensor failure', dtc: 'P0340', hint: 'Falls back to batch-fire & wasted spark. Watch the scope.' },
-    { id: 'misfire3', name: 'Ignition coil #3 dead', dtc: 'P0303', hint: 'Misfire detected via crank speed dips, injector 3 cut, MIL flashes.' },
+    { id: 'misfire3', only: ['na', 'turbo'], name: 'Ignition coil #3 dead', dtc: 'P0303', hint: 'Misfire detected via crank speed dips, injector 3 cut, MIL flashes.' },
     { id: 'maf', name: 'MAF sensor failure', dtc: 'P0102', hint: 'ECU switches to speed-density (MAP-based) air calculation.' },
     { id: 'map', name: 'MAP sensor failure', dtc: 'P0107', hint: 'MAF still used; plausibility code only.' },
-    { id: 'tps', name: 'Throttle sensors disagree', dtc: 'P0121', hint: 'Throttle motor disabled — limp home at fixed opening.' },
+    { id: 'tps', only: ['na', 'turbo'], name: 'Throttle sensors disagree', dtc: 'P0121', hint: 'Throttle motor disabled — limp home at fixed opening.' },
     { id: 'ect', name: 'ECT sensor open circuit', dtc: 'P0118', hint: 'Reads −40 °C. ECU substitutes 80 °C, fan forced on.' },
     { id: 'iat', name: 'IAT sensor open circuit', dtc: 'P0113', hint: 'Reads −40 °C. ECU substitutes 25 °C.' },
-    { id: 'o2', name: 'O2 sensor dead (stuck lean)', dtc: 'P0134', hint: 'Trims run to +25 % then ECU gives up → open loop.' },
-    { id: 'cat', name: 'Catalyst worn out', dtc: 'P0420', hint: 'Downstream O2 starts copying upstream switching.' },
-    { id: 'knocksensor', name: 'Knock sensor failure', dtc: 'P0325', hint: 'Safe (retarded) spark map applied everywhere.' },
-    { id: 'vacleak', name: 'Vacuum leak (unmetered air)', dtc: 'P0171', hint: 'MAF misses the extra air → lean → fuel trims go positive.' },
+    { id: 'o2', only: ['na', 'turbo'], name: 'O2 sensor dead (stuck lean)', dtc: 'P0134', hint: 'Trims run to +25 % then ECU gives up → open loop.' },
+    { id: 'cat', only: ['na', 'turbo'], name: 'Catalyst worn out', dtc: 'P0420', hint: 'Downstream O2 starts copying upstream switching.' },
+    { id: 'knocksensor', only: ['na', 'turbo'], name: 'Knock sensor failure', dtc: 'P0325', hint: 'Safe (retarded) spark map applied everywhere.' },
+    { id: 'vacleak', only: ['na', 'turbo'], name: 'Vacuum leak (unmetered air)', dtc: 'P0171', hint: 'MAF misses the extra air → lean → fuel trims go positive.' },
     { id: 'fuelpump', name: 'Weak fuel pump', dtc: 'P0087', hint: 'Rail pressure sags under load → lean at WOT.' },
     { id: 'alt', name: 'Alternator failure', dtc: 'P0562', hint: 'Battery voltage drops, injector dead-time grows.' },
     { id: 'oil', name: 'Low oil level', dtc: '', hint: 'Oil pressure lamp at idle.' },
     { id: 'thermostat', name: 'Thermostat stuck open', dtc: 'P0128', hint: 'Engine never reaches operating temperature.' },
     { id: 'wgstuck', name: 'Wastegate stuck closed', dtc: 'P0234', hint: 'Boost runs away → overboost cut.', turboOnly: true },
-    { id: 'boostleak', name: 'Boost leak (split hose)', dtc: 'P0299', hint: 'Can\'t reach boost target; metered air escapes → rich.', turboOnly: true },
+    { id: 'boostleak', only: ['turbo', 'diesel'], name: 'Boost leak (split hose)', dtc: 'P0299', hint: 'Can\'t reach boost target; metered air escapes → rich.' },
   ];
+
+  ECU.ACTUATORS.find((x) => x.id === 'wg').only = ['turbo'];
+  ECU.ACTUATORS.find((x) => x.id === 'bov').only = ['turbo'];
+  ECU.ACTUATORS.push(
+    { id: 'dinj', only: ['diesel'], name: 'Piezo injectors ×4', desc: 'Direct injection straight into the cylinder at up to 1800 bar. Piezo stacks open the nozzle in ~0.1 ms, so several injections per cycle are possible: a small pilot (quieter combustion), the main injection (torque), and late post-injections to heat the DPF during regeneration.' },
+    { id: 'pcv', only: ['diesel'], name: 'Rail pressure control valve', desc: 'Meters how much fuel the high-pressure pump delivers into the rail and bleeds off excess, holding the rail at the ECU\'s target pressure.' },
+    { id: 'vgt', only: ['diesel'], name: 'VGT vane actuator', desc: 'Moves the turbine vanes. Closing them raises boost; the ECU closes the loop on the boost pressure sensor.' },
+    { id: 'egr', only: ['diesel'], name: 'EGR valve', desc: 'Lets cooled exhaust back into the intake to lower NOx. The ECU opens it until the MAF drops to the fresh-air setpoint; it closes at full load where every gram of oxygen is needed.' },
+    { id: 'glow', only: ['diesel'], name: 'Glow plugs ×4', desc: 'Heater rods in each cylinder. A cold diesel may not reach auto-ignition temperature by compression alone, so the plugs pre-heat the chambers before cranking and keep glowing for a while after start (less smoke and noise).' },
+  );
+  ECU.FAULTS.find((f) => f.id === 'wgstuck').only = ['turbo'];
+  ECU.FAULTS.push(
+    { id: 'glowplug', only: ['diesel'], name: 'Glow plugs failed', dtc: 'P0670', hint: 'Detected at key-on; hard cold starts with white smoke.' },
+    { id: 'egropen', only: ['diesel'], name: 'EGR valve stuck open', dtc: 'P0402', hint: 'Too little fresh air: smoke limiter cuts fuel → low power, soot.' },
+    { id: 'egrclosed', only: ['diesel'], name: 'EGR valve stuck closed', dtc: 'P0401', hint: 'MAF stays above its setpoint; NOx rises.' },
+    { id: 'dpfclog', only: ['diesel'], name: 'DPF clogged with ash', dtc: 'P2463', hint: 'Pressure drop far too high; regeneration can’t clear it → limp.' },
+    { id: 'injleak3', only: ['diesel'], name: 'Injector #3 leaking', dtc: 'P0093', hint: 'Fuel dribbles into cylinder 3: rough idle, smoke, pump delivers more than is injected.' },
+    { id: 'vgtstuck', only: ['diesel'], name: 'VGT vanes stuck closed', dtc: 'P0234', hint: 'Boost overshoots under load → overboost protection.' },
+  );
+
+  // which engines a sensor / actuator / fault / lamp belongs to
+  ECU.appliesTo = function (def, type) {
+    if (def.only) return def.only.includes(type);
+    if (def.turboOnly) return type === 'turbo';
+    return true;
+  };
 
   ECU.DTC_TEXT = {
     P0335: 'Crankshaft position sensor A circuit',
@@ -280,6 +369,11 @@
     P0128: 'Coolant below thermostat regulating temperature',
     P0234: 'Turbocharger overboost condition',
     P0299: 'Turbocharger underboost condition',
+    P0670: 'Glow plug control circuit',
+    P0401: 'EGR flow insufficient',
+    P0402: 'EGR flow excessive',
+    P2463: 'DPF soot accumulation',
+    P0093: 'Fuel system leak detected — large leak',
   };
 
   // Stroke colors shared by views

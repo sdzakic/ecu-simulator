@@ -14,12 +14,15 @@
     const comb = burning ? clamp(S.torqueInd / (S.E.turbo ? 340 : 180), 0.05, 1.3) : 0;
     const thr = clamp(S.throttle / 100, 0, 1);
     const dead = S.injCut.filter(Boolean).length + (S.faults.misfire3 && !S.injCut[2] ? 1 : 0);
+    const D = S.E.diesel;
     return {
+      // diesel clatter: sharp pressure rise at each combustion — louder cold / advanced, softened by the pilot
+      clatter: D && burning ? clamp((0.07 + 0.1 * clamp((50 - S.ect) / 60, 0, 1) + (S.soi - 4) * 0.01 - (S.pilot ? 0.035 : 0)) * (1 - 0.45 * clamp(S.qMg / 60, 0, 1)), 0.02, 0.25) : 0,
       fire: rpm / 30, // firing frequency of a 4-cylinder: 2 combustions per revolution
       engine: turning ? (burning ? 0.1 + 0.28 * comb + 0.08 * (rpm / 7000) : 0.05 + 0.04 * (rpm / 7000)) : 0,
-      cutoff: 160 + 1500 * thr * (burning ? 1 : 0.4) + rpm * 0.22,
+      cutoff: D ? 120 + 900 * clamp(S.qMg / 60, 0, 1) + rpm * 0.12 : 160 + 1500 * thr * (burning ? 1 : 0.4) + rpm * 0.22,
       rumble: burning ? 0.08 + 0.25 * comb : 0,
-      intake: turning ? clamp(S.airGs / 160, 0, 1) * (0.05 + 0.15 * thr) : 0,
+      intake: turning ? clamp(S.airGs / 160, 0, 1) * (D ? 0.06 : 0.05 + 0.15 * thr) : 0,
       intakeFreq: 350 + S.airGs * 7,
       misfire: burning && dead > 0 ? clamp(0.35 * dead, 0, 0.8) : 0,
       cycle: rpm / 120, // one full 720° cycle
@@ -86,7 +89,16 @@
     fanBp.type = 'bandpass'; fanBp.frequency.value = 1800; fanBp.Q.value = 0.5;
     fan.connect(fanBp); fanBp.connect(fanG); fanG.connect(out);
 
-    [eng, sub, lfo, rum, ink, tur, st, pump, fan].forEach((n) => n.start());
+    // diesel clatter: band-passed noise gated by a narrow pulse train at the firing frequency
+    const clat = src(), clatBp = ctx.createBiquadFilter(), clatG = gain(0);
+    clatBp.type = 'bandpass'; clatBp.frequency.value = 2600; clatBp.Q.value = 1.2;
+    clat.connect(clatBp); clatBp.connect(clatG); clatG.connect(out);
+    const pulse = osc('sawtooth', 27), gate = ctx.createWaveShaper(), gateG = gain(0);
+    const gc = new Float32Array(256);
+    for (let i = 0; i < 256; i++) gc[i] = (i / 255) * 2 - 1 > 0.7 ? 1 : 0; // ~15 % duty pulses
+    gate.curve = gc;
+    pulse.connect(gate); gate.connect(gateG); gateG.connect(clatG.gain);
+    [eng, sub, lfo, rum, ink, tur, st, pump, fan, clat, pulse].forEach((n) => n.start());
 
     const TC = 0.04; // parameter smoothing time constant
     const to = (param, v, t) => param.setTargetAtTime(v, t, TC);
@@ -106,6 +118,8 @@
       to(st.frequency, p.starterFreq, t);
       to(pumpG.gain, p.pump, t);
       to(fanG.gain, p.fan, t);
+      to(pulse.frequency, Math.max(1, p.fire), t);
+      to(gateG.gain, p.clatter || 0, t);
     }
     // one-shots
     function burst(when, { type, freq, q, peak, decay }) {

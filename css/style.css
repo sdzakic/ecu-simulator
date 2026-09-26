@@ -86,7 +86,7 @@ kbd {
 .seg.small button { padding: 5px 9px; font-size: 11.5px; }
 .seg.wide { display: flex; }
 .seg.wide button { flex: 1; }
-.engine-seg button { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 16px; min-width: 170px; }
+.engine-seg button { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 14px; min-width: 150px; }
 .engine-seg .seg-title { font-size: 13px; }
 .engine-seg .seg-sub { font-size: 10.5px; color: var(--dim); font-weight: 500; }
 .engine-seg button.active .seg-sub { color: var(--muted); }
@@ -235,6 +235,13 @@ canvas { display: block; width: 100%; }
 .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 .turbo-only { display: none !important; }
+.diesel-only, .pturbo-only { display: none !important; }
+body.is-diesel .diesel-only { display: revert !important; }
+body.is-diesel .petrol-only { display: none !important; }
+body.is-turbo:not(.is-diesel) .pturbo-only { display: revert !important; }
+body.is-turbo:not(.is-diesel) .ctl.pturbo-only { display: block !important; }
+body.is-diesel .diag .diesel-only, body.is-turbo:not(.is-diesel) .diag .pturbo-only { display: inline !important; }
+.engine-seg button[data-engine="diesel"].active { box-shadow: inset 0 0 0 1px rgba(185, 140, 255, .55), 0 0 18px rgba(185, 140, 255, .18); }
 body.is-turbo .turbo-only { display: revert !important; }
 body.is-turbo .ctl.turbo-only { display: block !important; }
 body.is-turbo .legend .turbo-only { display: inline-flex !important; }

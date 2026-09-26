@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.window = globalThis;
-for (const f of ['i18n', 'i18n-hr', 'info', 'info-hr', 'sim', 'lessons', 'challenge', 'sound', 'obd']) {
+for (const f of ['i18n', 'i18n-hr', 'info', 'info-hr', 'sim', 'diesel', 'lessons', 'challenge', 'sound', 'obd']) {
   new Function(readFileSync(join(root, 'js', f + '.js'), 'utf8'))();
 }
 export const ECU = globalThis.ECU;

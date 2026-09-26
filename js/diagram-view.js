@@ -31,12 +31,20 @@
     { id: 'brake', x: 990, y: 322, tx: -12, ty: 32 },
     { id: 'vss', x: 1052, y: 322, tx: -20, ty: 32 },
     { id: 'fuellvl', x: 1010, y: 404, tx: -26, ty: 34 },
+    // diesel
+    { id: 'rail', x: 846, y: 140, tx: 14, ty: -10 },
+    { id: 'lam', x: 470, y: 352, tx: -26, ty: 30 },
+    { id: 'egrpos', x: 520, y: 206, tx: -74, ty: 4 },
+    { id: 'vgtpos', x: 250, y: 420, tx: 16, ty: 8 },
+    { id: 'egt2', x: 200, y: 318, tx: -18, ty: -18 },
+    { id: 'dpfdp', x: 108, y: 316, tx: -34, ty: -18 },
+    { id: 'fueltemp', x: 940, y: 372, tx: -84, ty: 4 },
   ];
 
   const T = (s, v) => ECU.t(s, v);
   const COL = { air: '#3fc6ff', hot: '#ff9f43', fuel: '#ffb020', exh: '#b0876a' };
 
-  function build() {
+  function build(type) {
     const s = [];
     s.push(`<svg class="diag" viewBox="0 0 1100 470" xmlns="http://www.w3.org/2000/svg">`);
     s.push(`<defs>
@@ -76,7 +84,7 @@
     s.push(pipe(P.exhT2, 18, 'turbo-only'));
     s.push(pipe('M180 350 L110 350', 18));
     s.push(pipe(P.tail, 16));
-    s.push(pipe(P.wg, 9, 'turbo-only'));
+    s.push(pipe(P.wg, 9, 'pturbo-only'));
     s.push(pipe(P.fuel, 6));
     s.push(pipe(P.rail, 8));
 
@@ -94,7 +102,7 @@
     s.push(flow('fExhT2', P.exhT2, COL.exh, 5, 'turbo-only'));
     s.push(flow('fExh3', 'M180 350 L110 350', COL.exh, 5));
     s.push(flow('fTail', P.tail, '#8a8f96', 5));
-    s.push(flow('fWg', P.wg, COL.exh, 3, 'turbo-only'));
+    s.push(flow('fWg', P.wg, COL.exh, 3, 'pturbo-only'));
     s.push(flow('fFuel', P.fuel, COL.fuel, 2.5));
     s.push(flow('fRail', P.rail, COL.fuel, 3));
 
@@ -119,10 +127,10 @@
       ${Array.from({ length: 10 }, (_, i) => `<line x1="${330 + i * 9}" y1="62" x2="${330 + i * 9}" y2="118" stroke="#35506a" stroke-width="1.5"/>`).join('')}
       <text class="lbl-s" x="370" y="140" text-anchor="middle">${T('Intercooler')}</text></g>`);
     // BOV
-    s.push(`<g class="turbo-only"><rect class="comp" x="455" y="96" width="14" height="16" rx="3"/><circle id="bovPuff" cx="462" cy="124" r="4" fill="#cfe9ff" opacity="0"/>
+    s.push(`<g class="pturbo-only"><rect class="comp" x="455" y="96" width="14" height="16" rx="3"/><circle id="bovPuff" cx="462" cy="124" r="4" fill="#cfe9ff" opacity="0"/>
       <text class="lbl-s" x="462" y="150" text-anchor="middle" font-size="9">BOV</text></g>`);
     // wastegate flap
-    s.push(`<g class="turbo-only"><circle class="comp" cx="250" cy="400" r="9"/><line id="wgFlap" x1="250" y1="400" x2="250" y2="391" stroke="#ff9a5a" stroke-width="3" stroke-linecap="round"/>
+    s.push(`<g class="pturbo-only"><circle class="comp" cx="250" cy="400" r="9"/><line id="wgFlap" x1="250" y1="400" x2="250" y2="391" stroke="#ff9a5a" stroke-width="3" stroke-linecap="round"/>
       <text class="lbl-s" x="250" y="446" text-anchor="middle">${T('Wastegate')}</text></g>`);
 
     // throttle body
@@ -137,12 +145,33 @@
         <path id="injSpray${i}" d="M${x - 10} 140 l-6 12 l12 0 z" fill="#ffb020" opacity=".25"/></g>`).join('')}
       <text class="lbl-c" x="700" y="170" text-anchor="middle">${T('Cylinder head · DOHC 16V')}</text></g>`);
     // catalyst
-    s.push(`<g><rect class="comp" x="110" y="330" width="70" height="40" rx="14"/>
+    s.push(`<g class="petrol-only"><rect class="comp" x="110" y="330" width="70" height="40" rx="14"/>
       ${Array.from({ length: 6 }, (_, i) => `<line x1="${120 + i * 10}" y1="336" x2="${120 + i * 10}" y2="364" stroke="#3a4a5e" stroke-width="1.5"/>`).join('')}
       <rect id="catGlow" x="110" y="330" width="70" height="40" rx="14" fill="#ff7a3d" opacity="0"/>
       <text class="lbl-s" x="145" y="390" text-anchor="middle">${T('Catalyst')}</text></g>`);
     s.push(`<text class="lbl-s" x="22" y="330">${T('Tailpipe')}</text>`);
     s.push(`<text class="lbl-s na-only" x="380" y="376">${T('Exhaust')}</text>`);
+
+    // ---------- diesel: EGR loop, DOC + DPF, high-pressure pump, glow plugs, smoke ----------
+    const pEgr = 'M596 336 C 548 336 520 312 520 262 L520 150 Q520 118 548 110';
+    s.push(`<g class="diesel-only">
+      <path class="pipe" d="${pEgr}" stroke-width="10"/>
+      <path id="fEgr" class="flow" d="${pEgr}" stroke="${COL.exh}" stroke-width="3.5"/>
+      <rect class="comp" x="507" y="234" width="26" height="46" rx="6"/>
+      ${[0, 1, 2, 3].map((k) => `<line x1="509" y1="${243 + k * 9}" x2="531" y2="${243 + k * 9}" stroke="#2f5d7a" stroke-width="2"/>`).join('')}
+      <text class="lbl-s" x="540" y="262">${T('EGR cooler')}</text>
+      <text class="lbl-s" x="540" y="150">${T('EGR valve')}</text>
+      <text class="lbl-c" x="250" y="320" text-anchor="middle" dx="-50">VGT</text>
+      <rect class="comp" x="150" y="332" width="40" height="36" rx="10"/><text class="lbl-s" x="170" y="390" text-anchor="middle">DOC</text>
+      <rect class="comp" x="70" y="330" width="74" height="40" rx="12"/>
+      <rect id="dpfSoot" x="72" y="332" width="0" height="36" rx="10" fill="#1a1a1a" opacity=".85"/>
+      <rect id="dpfGlow" x="70" y="330" width="74" height="40" rx="12" fill="#ff7a3d" opacity="0"/>
+      ${Array.from({ length: 6 }, (_, k) => `<line x1="${80 + k * 10}" y1="336" x2="${80 + k * 10}" y2="364" stroke="#3a4a5e" stroke-width="1.5"/>`).join('')}
+      <text class="lbl-s" x="107" y="390" text-anchor="middle">DPF</text>
+      <circle id="smokePuff" cx="26" cy="350" r="6" fill="#222" opacity="0"/>
+      <rect class="comp" x="866" y="156" width="30" height="26" rx="5"/><text class="lbl-s" x="881" y="198" text-anchor="middle">${T('HP pump')}</text>
+      ${[590, 660, 730, 800].map((x, i2) => `<circle id="glowDot${i2}" cx="${x + 12}" cy="196" r="4" fill="#ff9a3d" opacity="0"/>`).join('')}
+    </g>`);
 
     // ECU
     s.push(`<g id="ecuBox"><rect x="905" y="150" width="170" height="120" rx="14" fill="#0e1622" stroke="#2ee6c5" stroke-opacity=".45" stroke-width="1.5"/>
@@ -161,8 +190,11 @@
     s.push(`<path d="M905 210 C860 210 880 210 860 210" stroke="#1d2836" stroke-width="2" fill="none"/>`);
 
     // nodes
+    const byId = Object.fromEntries(ECU.SENSORS.map((x) => [x.id, x]));
     for (const n of NODES) {
-      const cls = n.turbo ? 'turbo-only' : '';
+      const def = byId[n.id];
+      if (def && !ECU.appliesTo(def, type)) continue; // only this engine's sensors
+      const cls = '';
       s.push(`<g class="snode ${cls}" data-id="${n.id}" transform="translate(${n.x} ${n.y})">
         <g class="tag" transform="translate(${n.tx} ${n.ty})"><rect class="tag-bg" x="-4" y="-11" rx="5" height="16" width="60"/><text class="val" id="dv_${n.id}" x="0" y="1">—</text></g>
         <circle class="ring" r="9" stroke="#3ee07a"/><text class="ab" id="da_${n.id}" fill="#dbe6f3"></text></g>`);
@@ -172,13 +204,14 @@
   }
 
   function DiagramView(wrap, onPick) {
-    wrap.innerHTML = build();
+    this.type = (window.app && window.app.S && window.app.S.type) || 'na';
+    wrap.innerHTML = build(this.type);
     this.svg = wrap.querySelector('svg');
     this.off = {};
     this.turbAng = 0;
     this.els = {};
     ['fAirNA', 'fAirT', 'fHot', 'fCool', 'fMani', 'fRun', 'fExhRun', 'fExhNA', 'fExhT1', 'fExhT2', 'fExh3', 'fTail', 'fWg', 'fFuel', 'fRail',
-      'compWheel', 'turbWheel', 'bovPuff', 'wgFlap', 'thrPlate', 'catGlow', 'ecuLed', 'fuelLvlRect'].forEach((id) => (this.els[id] = this.svg.getElementById(id)));
+      'compWheel', 'turbWheel', 'bovPuff', 'wgFlap', 'thrPlate', 'catGlow', 'ecuLed', 'fuelLvlRect', 'fEgr', 'dpfSoot', 'dpfGlow', 'smokePuff'].forEach((id) => (this.els[id] = this.svg.getElementById(id)));
     this.cyl = [0, 1, 2, 3].map((i) => ({ fire: this.svg.getElementById('cylFire' + i), piston: this.svg.getElementById('cylPiston' + i), inj: this.svg.getElementById('injSpray' + i) }));
     this.nodes = {};
     const byId = Object.fromEntries(ECU.SENSORS.map((s) => [s.id, s]));
@@ -258,6 +291,18 @@
     // ECU heartbeat
     this.els.ecuLed.setAttribute('opacity', S.ecuOn ? (Math.sin(performance.now() / 120) > 0 ? 1 : 0.3) : 0.1);
     this.els.fuelLvlRect.setAttribute('width', Math.max(8, 136 * S.fuelLevel / 100));
+
+    // diesel extras
+    if (S.E.diesel) {
+      setFlow('fEgr', 8 + (S.egrGs || 0) * 2, S.egrPos > 0.03 && S.rpm > 200 ? Math.min(1, 0.3 + S.egrPos) : 0);
+      this.els.dpfSoot.setAttribute('width', Math.max(0, Math.min(70, (S.soot / 45) * 70)));
+      this.els.dpfGlow.setAttribute('opacity', S.regen ? 0.18 + 0.12 * Math.sin(performance.now() / 250) : Math.max(0, Math.min(0.2, (S.dpfT - 450) / 800)));
+      const sm = S.smoke || 0, ph = (performance.now() / 500) % 1;
+      this.els.smokePuff.setAttribute('r', 5 + ph * 16);
+      this.els.smokePuff.setAttribute('opacity', S.rpm > 300 ? Math.min(0.85, sm * 0.6) * (1 - ph) : 0);
+      this.els.smokePuff.setAttribute('fill', S.ignQ < 0.9 ? '#e8e8e8' : '#1c1c1c'); // white = unburnt (cold), black = soot
+      for (let c = 0; c < 4; c++) { const g = this.svg.getElementById('glowDot' + c); if (g) g.setAttribute('opacity', (S.glowTemp || 0) * 0.95); }
+    }
 
     // cylinders
     for (let c = 0; c < 4; c++) {

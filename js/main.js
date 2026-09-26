@@ -16,13 +16,20 @@
       const prev = this.S;
       this.S = ECU.createState(type, prev);
       this.S.cal = this.calFor(type);
-      document.body.classList.toggle('is-turbo', type === 'turbo');
+      this.applyEngineClasses(type);
+      if (this.ui) this.ui.buildAll();
+      if (this.diagram) this.diagram = new ECU.DiagramView(document.querySelector('#diagramWrap'), (id) => this.ui.openSensor(id));
       ECU.log(this.S, 'Engine swapped: {label}. {detail}', 'info', {
         label: { k: this.S.E.label },
-        detail: { k: type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.' },
+        detail: { k: type === 'diesel' ? 'Compression ignition at 16.5:1, common rail up to 1800 bar, VGT turbo, EGR and a particulate filter. Torque is set by fuel quantity — there is no throttling.' : type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.' },
       });
       this.pedalBase = 0;
       document.querySelectorAll('#acBtn,#lightsBtn').forEach((b) => b.classList.toggle('on', !!this.S[b.id === 'acBtn' ? 'ac' : 'lights']));
+    },
+    applyEngineClasses(type) {
+      // is-turbo: has a turbocharger (petrol turbo and diesel); is-diesel: compression ignition
+      document.body.classList.toggle('is-turbo', type !== 'na');
+      document.body.classList.toggle('is-diesel', type === 'diesel');
     },
     // language switched: views that bake text into DOM/SVG get rebuilt
     relabel() {
@@ -95,6 +102,7 @@
   window.app = app;
 
   ECU.applyStatic();
+  app.applyEngineClasses(app.S.type);
   $('#pauseBtn span').textContent = ECU.t('Pause');
   app.engine = new ECU.EngineView($('#engineCanvas'));
   app.wheels = new ECU.WheelView($('#wheelCanvas'));

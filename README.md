@@ -1,6 +1,6 @@
 # ECU Simulator
 
-An interactive, animated engine-management simulator that shows what every sensor reads and what the ECU does with it, crank degree by crank degree. You can switch between a naturally aspirated and a turbocharged 2.0 L inline-four.
+An interactive, animated engine-management simulator that shows what every sensor reads and what the ECU does with it, crank degree by crank degree. You can switch between a naturally aspirated petrol, a turbocharged petrol and a 2.0 TDI-style common-rail diesel, all 2.0 L inline-fours.
 
 Open `index.html` in a browser. There is no build step and nothing to install. You can also serve the folder, e.g. `python3 -m http.server`.
 
@@ -16,6 +16,18 @@ Open `index.html` in a browser. There is no build step and nothing to install. Y
 | What the ECU is thinking | Step-by-step live calculation: sync → air per cylinder → target λ → fuel mass → pulse width → spark → closed loop → idle → boost |
 | Sensors (26) | Value, electrical signal (volts / Hz / Ω) and status for each; click one for a full explanation |
 | Actuators, live data, event log | ECU outputs, 30 s trends, narrated event log and stored DTCs |
+
+## Diesel (2.0 TDI-style)
+
+Pick **Diesel** in the top bar. The diesel has no throttle for torque: the pedal asks for a fuel quantity (driver's wish map), which then passes through the idle governor, the smoke limiter (λ ≥ 1.2 from measured air), the torque limiter and the rpm limit. Also modelled:
+
+- **Common rail** up to 1800 bar with pilot, main and post injections on the scope and in the cylinders.
+- **Compression ignition** with glow plugs (pre-glow, ready and post-glow). A cold start without them struggles.
+- **VGT turbo** with vane position closed-loop on boost.
+- **EGR** running closed-loop on fresh air (MAF), with its effect on NOx and soot.
+- **DOC/DPF**: soot loading estimated from differential pressure and a model, and active regeneration with post-injection to about 620 °C. An overloaded filter sets P2463 and limp mode.
+
+Diesel faults: glow plug circuit, EGR stuck open or closed, clogged DPF, leaking injector (rail pressure) and stuck VGT. Two extra lessons (diesel start, DPF regeneration) and diesel challenge cases are included, along with diesel OBD PIDs and monitors, calibration maps (quantity, injection timing, boost) and a diesel engine sound. The code is in `js/diesel.js`.
 
 ## Phones
 
@@ -67,7 +79,7 @@ Croatian is the default; switch with **HR / EN** in the top-right corner (the ch
 
 ## Files
 
-- `js/sim.js` contains the engine physics and ECU strategy. It doesn't touch the DOM, so it also runs headless in Node.
+- `js/sim.js` contains the petrol engine physics and ECU strategy, and `js/diesel.js` the diesel. It doesn't touch the DOM, so it also runs headless in Node.
 - `js/info.js` holds the sensor, actuator and fault definitions and all the explanatory text.
 - `js/*-view.js` are the canvas and SVG renderers.
 - `js/ui.js` handles the DOM panels and controls. `js/main.js` runs the loop.
@@ -78,7 +90,6 @@ Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % 
 
 Ideas not built yet:
 
-- **Diesel engine, 2.0 TDI-style:** common-rail injection with pilot/main/post injections and rail-pressure control, variable-geometry turbo, glow plugs, lean operation without a throttle (torque by fuel quantity), **EGR** (valve, cooler, effect on NOx and soot), **DPF** (soot loading from differential pressure, passive/active regeneration with post-injection and exhaust temperatures), and diesel faults/lessons (clogged DPF, stuck EGR valve, leaking injector, glow plug failure).
 - **Time-based oscilloscope:** probe any two signals on a millisecond axis, like a Picoscope.
 - **Data logger:** record a drive, replay it and export CSV.
 - **More petrol variants:** direct injection with a high-pressure pump, EVAP purge, wideband upstream O2, V6 with two banks.

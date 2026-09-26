@@ -8,17 +8,21 @@ test('every fault has a challenge case with complaint and two hints in both lang
   for (const f of ECU.FAULTS) {
     const c = CH.CASES[f.id];
     assert.ok(c, `missing case for ${f.id}`);
-    for (const o of [c.complaint, ...c.hints]) assert.ok(o.en && o.hr, `${f.id}: missing translation`);
-    assert.equal(c.hints.length, 2);
-    assert.equal(!!c.turbo, !!f.turboOnly, `${f.id}: turbo flag matches the fault`);
+    for (const v of [c, c.dieselText].filter(Boolean)) {
+      for (const o of [v.complaint, ...v.hints]) assert.ok(o.en && o.hr, `${f.id}: missing translation`);
+      assert.equal(v.hints.length, 2);
+    }
   }
 });
 
-test('turbo-only faults are never offered on the NA engine', () => {
-  const na = CH.applicable('na'), tb = CH.applicable('turbo');
+test('each engine is only offered its own faults', () => {
+  const na = CH.applicable('na'), tb = CH.applicable('turbo'), d = CH.applicable('diesel');
   assert.ok(!na.includes('wgstuck') && !na.includes('boostleak'));
   assert.ok(tb.includes('wgstuck') && tb.includes('boostleak'));
   assert.equal(tb.length, na.length + 2);
+  for (const petrolOnly of ['misfire3', 'o2', 'cat', 'knocksensor', 'tps', 'vacleak', 'wgstuck']) assert.ok(!d.includes(petrolOnly), `diesel must not offer ${petrolOnly}`);
+  for (const dieselOnly of ['glowplug', 'egropen', 'egrclosed', 'dpfclog', 'injleak3', 'vgtstuck']) { assert.ok(d.includes(dieselOnly)); assert.ok(!tb.includes(dieselOnly)); }
+  assert.equal(CH.caseFor('cmp', 'diesel'), CH.CASES.cmp.dieselText, 'diesel wording for shared faults');
 });
 
 test('answer options: include the fault, are unique and sized by difficulty', () => {
@@ -52,13 +56,14 @@ test('every challenge fault produces an observable symptom', () => {
     oil: (S) => S.oilP < 0.45,
     ckp: (S) => !S.running,
   };
-  for (const type of ['na', 'turbo']) {
+  for (const type of ['na', 'turbo', 'diesel']) {
     for (const id of CH.applicable(type)) {
       if (type === 'turbo' && !CH.CASES[id].turbo) continue; // NA-side faults are covered on the NA engine
       const S = started(type);
       S.faults[id] = true;
+      if (id === 'glowplug') { S.key = 'OFF'; run(S, 0.5); S.key = 'ON'; } // detected at the next key-on
       run(S, 20);
-      if (['fuelpump', 'wgstuck', 'boostleak'].includes(id)) { S.gear = 2; S.pedal = 100; run(S, 8); }
+      if (['fuelpump', 'wgstuck', 'boostleak', 'vgtstuck', 'dpfclog'].includes(id)) { S.gear = type === 'diesel' ? 3 : 2; S.pedal = 100; S.v = type === 'diesel' ? 15 : S.v; run(S, 10); }
       else run(S, 60);
       const ok = symptom[id] ? symptom[id](S) : Object.keys(S.dtc).length > 0;
       assert.ok(ok, `${type}/${id}: no observable symptom`);

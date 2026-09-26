@@ -89,6 +89,42 @@
       hints: [{ en: 'Watch the coolant temperature for a few minutes.', hr: 'Pratite temperaturu rashladne tekućine nekoliko minuta.' },
         { en: 'The engine never reaches ~88 °C, even idling: coolant flows through the radiator all the time. The thermostat is stuck open.', hr: 'Motor nikad ne dosegne ~88 °C, čak ni u praznom hodu: tekućina stalno prolazi kroz hladnjak. Termostat je zaglavljen otvoren.' }],
     },
+    glowplug: {
+      complaint: { en: 'The glow-plug lamp flashes, and on cold mornings it takes ages to start with white smoke.', hr: 'Lampica grijača treperi, a hladnim jutrima dugo pali uz bijeli dim.' },
+      hints: [{ en: 'Watch the glow lamp at key-on and read what the ECU says about the glow plugs.', hr: 'Pratite lampicu grijača pri uključenju kontakta i što ECU kaže o grijačima.' },
+        { en: 'The ECU tests the glow plug circuit at every key-on and finds it open. Without glow, a cold diesel can’t reach auto-ignition temperature — long cranking, white (unburnt) smoke.', hr: 'ECU provjerava krug grijača pri svakom uključenju kontakta i nalazi prekid. Bez grijanja hladan dizel ne dosegne temperaturu samozapaljenja — dugo pokretanje, bijeli (neizgoreni) dim.' }],
+      diesel: true,
+    },
+    egropen: {
+      complaint: { en: 'Down on power, black smoke, and the check-engine light is on.', hr: 'Nema snage, crni dim i svijetli lampica motora.' },
+      hints: [{ en: 'Compare the EGR valve position with what the ECU commands, and look at the MAF.', hr: 'Usporedite položaj EGR ventila sa zadanim i pogledajte MAF.' },
+        { en: 'The EGR valve stays ~80 % open even when the ECU commands it shut, so exhaust displaces fresh air. The MAF reads far below its setpoint, and the smoke limiter cuts fuel. EGR stuck open.', hr: 'EGR ventil ostaje ~80 % otvoren čak i kad ga ECU zatvara, pa ispuh istiskuje svježi zrak. MAF je daleko ispod zadanog, a ograničivač dima reže gorivo. EGR zaglavljen otvoren.' }],
+      diesel: true,
+    },
+    egrclosed: {
+      complaint: { en: 'Check-engine light on. It drives fine — maybe even a bit livelier.', hr: 'Svijetli lampica motora. Vozi se normalno — možda čak i malo živahnije.' },
+      hints: [{ en: 'At idle, compare the EGR valve position and the MAF reading with the setpoint.', hr: 'U praznom hodu usporedite položaj EGR ventila i očitanje MAF-a sa zadanim.' },
+        { en: 'The ECU commands the EGR fully open, but the valve stays shut, so the MAF can’t drop to its setpoint (too much fresh air). NOx is high. EGR stuck closed.', hr: 'ECU zadaje potpuno otvoren EGR, ali ventil ostaje zatvoren, pa MAF ne može pasti na zadanu vrijednost (previše svježeg zraka). NOx je visok. EGR zaglavljen zatvoren.' }],
+      diesel: true,
+    },
+    dpfclog: {
+      complaint: { en: 'The DPF lamp is on and the car has gone into limp mode.', hr: 'Svijetli lampica DPF-a i auto je u nužnom načinu rada.' },
+      hints: [{ en: 'Drive a little and watch the DPF pressure drop and the soot estimate.', hr: 'Vozite malo i pratite pad tlaka na DPF-u i procjenu čađe.' },
+        { en: 'The pressure drop reads as a filter ~45 g full, and regeneration can’t bring it down: the filter is clogged with incombustible ash, not soot. It needs cleaning or replacing.', hr: 'Pad tlaka pokazuje filtar pun ~45 g, a regeneracija ga ne može spustiti: filtar je začepljen negorivim pepelom, a ne čađom. Treba ga očistiti ili zamijeniti.' }],
+      diesel: true,
+    },
+    injleak3: {
+      complaint: { en: 'Rough idle, a smell of diesel, some smoke — and now it has lost power.', hr: 'Neravnomjeran prazni hod, miris dizela, malo dima — a sada je izgubio snagu.' },
+      hints: [{ en: 'Look at the crank-speed row of the scope and compare rail pressure with its target.', hr: 'Pogledajte red brzine radilice na dijagramu i usporedite tlak u rampi s ciljem.' },
+        { en: 'Cylinder 3 runs unevenly and the pump must deliver far more fuel than is injected: an injector is leaking (dribbling) into cylinder 3. The ECU flagged a large fuel leak and limits torque.', hr: 'Cilindar 3 radi neravnomjerno, a pumpa mora dobaviti puno više goriva nego što se ubrizgava: brizgaljka curi u cilindar 3. ECU je prijavio veliko curenje goriva i ograničava moment.' }],
+      diesel: true,
+    },
+    vgtstuck: {
+      complaint: { en: 'Pulls very hard, then suddenly loses power under full throttle.', hr: 'Jako vuče, a onda pod punim gasom naglo izgubi snagu.' },
+      hints: [{ en: 'Do a full-throttle pull and watch boost against the target and the VGT vane position.', hr: 'Napravite ubrzanje punim gasom i pratite tlak punjenja naspram cilja i položaj lopatica VGT-a.' },
+        { en: 'The VGT vanes stay fully closed however the ECU commands them, so boost overshoots and overboost protection limits fuel. The vane mechanism is stuck (typically soot).', hr: 'Lopatice VGT-a ostaju potpuno zatvorene kako god ih ECU upravlja, pa tlak prelazi cilj i zaštita od previsokog tlaka ograničava gorivo. Mehanizam lopatica je zaglavljen (obično od čađe).' }],
+      diesel: true,
+    },
     wgstuck: {
       complaint: { en: 'At full throttle it pulls very hard — then suddenly cuts out.', hr: 'Pri punom gasu jako vuče — a onda se naglo prekine.' },
       hints: [{ en: 'Do a full-throttle pull and watch boost and the wastegate position.', hr: 'Napravite ubrzanje punim gasom i pratite tlak punjenja i položaj wastegatea.' },
@@ -110,7 +146,9 @@
   };
   const PTS = { base: 100, hint: 15, codes: 20, wrong: 25, graceSec: 60, perSec: 0.1, maxTime: 30, guesses: 3 };
 
-  const applicable = (type) => ECU.FAULTS.filter((f) => CASES[f.id] && (!CASES[f.id].turbo || type === 'turbo')).map((f) => f.id);
+  const applicable = (type) => ECU.FAULTS.filter((f) => CASES[f.id] && ECU.appliesTo(f, type)).map((f) => f.id);
+  // some shared faults behave differently on the diesel: use its own wording where given
+  const caseFor = (id, type) => (type === 'diesel' && CASES[id].dieselText) || CASES[id];
 
   // correct answer + random distractors, shuffled; rng is injectable for tests
   function makeOptions(faultId, type, diff, rng = Math.random) {
@@ -127,7 +165,27 @@
     return Math.max(0, Math.round(PTS.base - timePen - hints * PTS.hint - (codesRead ? PTS.codes : 0) - wrong * PTS.wrong));
   }
 
-  ECU.CHALLENGE = { CASES, DIFFS, PTS, applicable, makeOptions, score };
+  // diesel wording for faults shared with the petrol engines
+  const DT = {
+    cmp: { complaint: { en: 'It cranks for a long time before it starts; the check-engine light is on.', hr: 'Dugo se vrti anlaser prije nego upali; svijetli lampica motora.' },
+      hints: [{ en: 'Crank it and watch how long it takes to sync, and the cam trigger wheel.', hr: 'Pokrenite ga i pratite koliko dugo traje sinkronizacija i davački kotač bregastog.' },
+        { en: 'The cam signal is missing. A common-rail diesel can only inject into the cylinder on compression, so without the cam the ECU has to work out the stroke from the crank-speed pattern: a long crank.', hr: 'Nema signala bregastog. Common-rail dizel smije ubrizgati samo u cilindar u kompresiji, pa bez bregastog ECU mora iz uzorka brzine radilice zaključiti takt: dugo pokretanje.' }] },
+    maf: { complaint: { en: 'No power — it feels like it’s in limp mode — and the check-engine light is on.', hr: 'Nema snage — kao da je u nužnom načinu — i svijetli lampica motora.' },
+      hints: [{ en: 'Look at the MAF reading and step 2–3 of “What the ECU is thinking”.', hr: 'Pogledajte očitanje MAF-a i korake 2–3 u „Što ECU trenutno računa”.' },
+        { en: 'The MAF reads 0 g/s. Without an air measurement the smoke limiter can’t work safely, so the ECU uses a crude model and caps fuel (limp mode). EGR is switched off too.', hr: 'MAF pokazuje 0 g/s. Bez mjerenja zraka ograničivač dima ne može sigurno raditi, pa ECU koristi grubi model i ograničava gorivo (nužni način). Isključen je i EGR.' }] },
+    map: { complaint: { en: 'Check-engine light on and it feels flat, as if the turbo isn’t working.', hr: 'Svijetli lampica motora i djeluje tromo, kao da turbo ne radi.' },
+      hints: [{ en: 'Compare boost and manifold pressure readings with what the engine is doing.', hr: 'Usporedite očitanja tlaka punjenja i tlaka u usisnoj grani s onim što motor radi.' },
+        { en: 'The boost pressure sensor reads 0 kPa (0 V) — impossible. With no boost feedback the ECU keeps the VGT vanes open: no boost.', hr: 'Senzor tlaka punjenja pokazuje 0 kPa (0 V) — nemoguće. Bez povratne veze tlaka ECU drži lopatice VGT-a otvorene: nema tlaka punjenja.' }] },
+    fuelpump: { complaint: { en: 'Lacks power at full throttle and sometimes hesitates; fine when cruising.', hr: 'Nema snage pri punom gasu i ponekad zastaje; u krstarenju je dobro.' },
+      hints: [{ en: 'Do a full-throttle pull and compare rail pressure with its target.', hr: 'Napravite ubrzanje punim gasom i usporedite tlak u rampi s ciljem.' },
+        { en: 'Under load the rail pressure falls far below target: the low-pressure supply pump can’t keep the high-pressure pump fed. Low rail pressure = poor atomisation and less fuel.', hr: 'Pod opterećenjem tlak u rampi pada daleko ispod cilja: niskotlačna pumpa ne može opskrbiti visokotlačnu. Nizak tlak u rampi = loše raspršivanje i manje goriva.' }] },
+    boostleak: { complaint: { en: 'Sluggish, some black smoke under load, nowhere near the power it had.', hr: 'Trom, malo crnog dima pod opterećenjem, nema ni blizu snage koju je imao.' },
+      hints: [{ en: 'Compare actual boost with the target at full throttle (a dyno pull helps).', hr: 'Usporedite stvarni tlak punjenja s ciljem pri punom gasu (dinamometar pomaže).' },
+        { en: 'Boost never gets past ~0.5 bar even with the VGT vanes closed. Air escapes through a split hose, so less air means a lower smoke limit and less torque.', hr: 'Tlak nikad ne prelazi ~0.5 bar čak ni sa zatvorenim lopaticama VGT-a. Zrak bježi kroz puklu cijev, pa manje zraka znači nižu granicu dima i manje momenta.' }] },
+  };
+  for (const id in DT) CASES[id].dieselText = DT[id];
+
+  ECU.CHALLENGE = { CASES, DIFFS, PTS, applicable, makeOptions, score, caseFor };
 
   // ================= browser UI =================
   function ChallengeUI(app) {
@@ -255,7 +313,7 @@
   ChallengeUI.prototype.render = function () {
     const c = this.c;
     if (!c) return;
-    const cs = CASES[c.fault];
+    const cs = caseFor(c.fault, this.app.S.type);
     const name = (id) => ECU.info('faults', ECU.FAULTS.find((f) => f.id === id), 'name');
     let body, foot;
     if (!c.done) {

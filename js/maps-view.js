@@ -25,6 +25,24 @@
       desc: 'The mixture the ECU aims for. λ 1.00 cells run in closed loop on the O2 sensor; richer cells (λ < 1) cool the charge and make maximum power; leaner cells run open loop for economy.',
       tip: 'Try: set 1.10 in the cruise area (2000–3500 rpm, 30–50 % load) — the ECU goes open-loop lean. Or lean out full load to 0.95 and watch the exhaust temperature climb.',
     },
+    quantity: {
+      title: "Driver's wish", unit: 'mg', step: 0.5, big: 3, min: 0, max: 90, yLabel: 'pedal %', fmt: (v) => v.toFixed(1), yVal: (S) => S.pedal,
+      color: (v) => ramp(['#132030', '#1f5c7a', '#2ee6c5', '#ffd23f', '#ff7a3d'], v / 70),
+      desc: 'Injected fuel per stroke the driver asks for, by rpm and pedal. A diesel has no throttle: this map IS the accelerator. The smoke and torque limiters can still cut it back.',
+      tip: 'Try: raise the 60–100 % pedal rows by +10 mg. At low rpm the smoke limiter will block it (no boost yet); at mid rpm you get more torque — and a lower λ with more soot.',
+    },
+    soi: {
+      title: 'Injection timing', unit: '°', step: 0.5, big: 2, min: -8, max: 25, yLabel: 'fuel mg', fmt: (v) => v.toFixed(1), yVal: (S) => S.qMg,
+      color: (v) => ramp(['#1d3b8f', '#2a7de1', '#2ee6c5', '#ffd23f', '#ff3b5c'], (v + 4) / 20),
+      desc: 'Start of the main injection in degrees before TDC, by rpm and fuel quantity. Earlier injection gives more time to burn: better efficiency and louder combustion — and much more NOx.',
+      tip: 'Try: advance the part-load area by +4° and watch NOx climb in the Emissions chart; retard it and the exhaust gets hotter while efficiency drops.',
+    },
+    boostD: {
+      title: 'Boost target', unit: 'bar', step: 0.05, big: 0.2, min: 0, max: 2, yLabel: 'fuel mg', fmt: (v) => v.toFixed(2), yVal: (S) => S.qMg,
+      color: (v) => ramp(['#1b2433', '#5a3a1a', '#ff9f43', '#ffe066'], v / 1.6),
+      desc: 'Boost the ECU asks the VGT for, by rpm and fuel quantity. More boost means more air: a higher smoke limit (more allowed fuel) and a cleaner burn.',
+      tip: 'Try: raise 1500–2500 rpm at 40–70 mg to 1.5 bar. The smoke limiter lets more fuel in, low-end torque rises — until overboost protection steps in.',
+    },
     boost: {
       title: 'Boost target', unit: 'bar', step: 0.05, big: 0.2, min: 0, max: 2, yLabel: 'pedal %', fmt: (v) => v.toFixed(2), turbo: true,
       color: (v) => ramp(['#1b2433', '#5a3a1a', '#ff9f43', '#ffe066'], v / 1.6),
@@ -53,7 +71,9 @@
 
   MapsView.prototype.relabel = function () {
     const tabs = $('#mapTabs');
-    tabs.innerHTML = Object.keys(DEFS).map((k) => `<button data-map="${k}" class="${k === this.tab ? 'active' : ''}${DEFS[k].turbo ? ' turbo-only' : ''}">${T(DEFS[k].title)}</button>`).join('');
+    const cal = this.app.S.cal;
+    if (!cal[this.tab]) this.tab = Object.keys(cal)[0];
+    tabs.innerHTML = Object.keys(DEFS).filter((k) => cal[k]).map((k) => `<button data-map="${k}" class="${k === this.tab ? 'active' : ''}">${T(DEFS[k].title)}</button>`).join('');
     this.lastSide = 0;
     this.sideSig = null;
     this.render(this.app.S, true);
@@ -83,15 +103,14 @@
     const now = performance.now();
     if (!force && now - this.last < 50) return;
     this.last = now;
-    if (this.calRef !== S.cal) { this.calRef = S.cal; this.sel = null; this.trail = []; this.sideSig = null; } // engine swap / lesson
-    if (!S.cal[this.tab]) { this.tab = 'spark'; this.sel = null; this.relabel(); return; }
+    if (this.calRef !== S.cal) { this.calRef = S.cal; this.sel = null; this.trail = []; this.sideSig = null; this.relabel(); return; } // engine swap / lesson
     const t = this.table(), d = this.def(), g = this.geom(t);
     const { ctx } = fit(this.canvas, g.H);
     ctx.clearRect(0, 0, g.w, g.H);
 
     // operating point (continuous cell coordinates)
     const xv = S.sens.rpm || 0;
-    const yv = this.tab === 'boost' ? S.pedal : S.loadPct || 0;
+    const yv = d.yVal ? d.yVal(S) : this.tab === 'boost' ? S.pedal : S.loadPct || 0;
     const [ci, fx] = ECU.calCell(t.x, xv), [cj, fy] = ECU.calCell(t.y, yv);
     const live = S.running;
     const opX = g.L + (ci + fx + 0.5) * g.cw, opY = g.Tp + (g.ny - 1 - (cj + fy) + 0.5) * g.ch;
@@ -210,6 +229,16 @@
         row(T('Fuel loop'), S.closedLoop ? T('CLOSED LOOP') : T('OPEN LOOP'), S.closedLoop ? 'ok' : '') +
         row(T('Exhaust temperature'), `${S.egt.toFixed(0)} °C`, S.egt > (S.E.turbo ? 950 : 920) ? 'bad' : '') +
         row(T('Torque'), `${Math.max(0, S.torque).toFixed(0)} Nm`);
+    } else if (this.tab === 'quantity') {
+      live = row(T('Map value here'), `${S.qDriver.toFixed(1)} mg`) + row(T('Smoke limit'), `${Math.min(S.qSmoke, 99).toFixed(1)} mg`) + row(T('Torque limit'), `${S.qTorque.toFixed(1)} mg`) +
+        row(T('Injected'), `${S.qMg.toFixed(1)} mg`, 'hl') + row(T('Active limiter'), T(ECU.DIESEL_LIMITERS[S.limiter] || S.limiter)) + row(T('Torque'), `${Math.max(0, S.torque).toFixed(0)} Nm`);
+    } else if (this.tab === 'soi') {
+      live = row(T('Map value here'), `${(S.soi - Math.max(0, (40 - S.ect) * 0.08)).toFixed(1)}°`) + row(T('Final SOI'), `${S.soi.toFixed(1)}° BTDC`, 'hl') + row('NOx', `${S.nox.toFixed(0)} ppm`) +
+        row(T('Exhaust temperature'), `${S.egt.toFixed(0)} °C`) + row(T('Torque'), `${Math.max(0, S.torque).toFixed(0)} Nm`);
+    } else if (this.tab === 'boostD') {
+      const b = (S.boostP - S.baro) / 100;
+      live = row(T('Target'), `${(S.boostTargetKpa / 100).toFixed(2)} bar`, 'hl') + row(T('Actual boost'), `${b >= 0 ? '+' : ''}${b.toFixed(2)} bar`) + row(T('VGT vanes'), T('{o} % open', { o: (S.wgPos * 100).toFixed(0) })) +
+        row(T('Smoke limit'), `${Math.min(S.qSmoke, 99).toFixed(1)} mg`) + row(T('Torque'), `${Math.max(0, S.torque).toFixed(0)} Nm`);
     } else {
       const b = (S.boostP - S.baro) / 100;
       live = row(T('Map value here'), `${(S.boostMap || 0).toFixed(2)} bar`) +
@@ -226,7 +255,7 @@
       const cells = [];
       for (let j = s.j0; j <= s.j1; j++) for (let i = s.i0; i <= s.i1; i++) cells.push(t.z[j][i]);
       const avg = cells.reduce((a, b) => a + b, 0) / cells.length;
-      const range = `${t.x[s.i0]}${s.i1 > s.i0 ? '–' + t.x[s.i1] : ''} ${T('rpm')} · ${t.y[s.j0]}${s.j1 > s.j0 ? '–' + t.y[s.j1] : ''} ${d.yLabel.includes('pedal') ? T('pedal %') : T('load %')}`;
+      const range = `${t.x[s.i0]}${s.i1 > s.i0 ? '–' + t.x[s.i1] : ''} ${T('rpm')} · ${t.y[s.j0]}${s.j1 > s.j0 ? '–' + t.y[s.j1] : ''} ${T(d.yLabel)}`;
       selInfo = `<div class="msel"><b>${T('{n} cell(s) selected', { n: cells.length })}</b><span>${range}</span><span>${T('average {v}', { v: d.fmt(avg) + (d.unit ? ' ' + d.unit : '') })}</span></div>`;
     }
     const hov = this.hover ? `${t.x[this.hover.i]} ${T('rpm')} · ${t.y[this.hover.j]} % → <b>${d.fmt(t.z[this.hover.j][this.hover.i])}${d.unit}</b> <small>(${T('stock')} ${d.fmt(t.base[this.hover.j][this.hover.i])})</small>` : '&nbsp;';

@@ -16,24 +16,28 @@
     { pid: 0x05, name: 'Coolant temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.sens.ect + 40), dec: (A) => A - 40 },
     { pid: 0x06, name: 'Short-term fuel trim B1', unit: '%', f: '(A−128)×100/128', enc: (S) => b1(128 + S.stft * 128), dec: (A) => ((A - 128) * 100) / 128 },
     { pid: 0x07, name: 'Long-term fuel trim B1', unit: '%', f: '(A−128)×100/128', enc: (S) => b1(128 + S.ltft * 128), dec: (A) => ((A - 128) * 100) / 128 },
-    { pid: 0x0A, name: 'Fuel pressure (gauge)', unit: 'kPa', f: '3×A', enc: (S) => b1((S.fuelP * 100) / 3), dec: (A) => 3 * A },
+    { pid: 0x0A, only: ['na', 'turbo'], name: 'Fuel pressure (gauge)', unit: 'kPa', f: '3×A', enc: (S) => b1((S.fuelP * 100) / 3), dec: (A) => 3 * A },
     { pid: 0x0B, name: 'Intake manifold pressure', unit: 'kPa', f: 'A', enc: (S) => b1(S.sens.map), dec: (A) => A },
     { pid: 0x0C, name: 'Engine speed', unit: 'rpm', f: '((A×256)+B)/4', enc: (S) => b2(S.sens.rpm * 4), dec: (A, B) => (A * 256 + B) / 4 },
     { pid: 0x0D, name: 'Vehicle speed', unit: 'km/h', f: 'A', enc: (S) => b1(S.v * 3.6), dec: (A) => A },
-    { pid: 0x0E, name: 'Timing advance', unit: '° BTDC', f: 'A/2 − 64', enc: (S) => b1((S.spark + 64) * 2), dec: (A) => A / 2 - 64 },
+    { pid: 0x0E, only: ['na', 'turbo'], name: 'Timing advance', unit: '° BTDC', f: 'A/2 − 64', enc: (S) => b1((S.spark + 64) * 2), dec: (A) => A / 2 - 64 },
     { pid: 0x0F, name: 'Intake air temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.sens.iat + 40), dec: (A) => A - 40 },
     { pid: 0x10, name: 'MAF air flow rate', unit: 'g/s', f: '((A×256)+B)/100', enc: (S) => b2(S.sens.maf * 100), dec: (A, B) => (A * 256 + B) / 100 },
     { pid: 0x11, name: 'Throttle position', unit: '%', f: 'A×100/255', enc: (S) => b1(S.throttle * 2.55), dec: (A) => (A * 100) / 255 },
-    { pid: 0x14, name: 'O2 sensor B1S1 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2v * 200), ...b1(128 + S.stft * 128)], dec: (A) => A / 200 },
-    { pid: 0x15, name: 'O2 sensor B1S2 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2dn * 200), 0xff], dec: (A) => A / 200 },
+    { pid: 0x14, only: ['na', 'turbo'], name: 'O2 sensor B1S1 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2v * 200), ...b1(128 + S.stft * 128)], dec: (A) => A / 200 },
+    { pid: 0x15, only: ['na', 'turbo'], name: 'O2 sensor B1S2 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2dn * 200), 0xff], dec: (A) => A / 200 },
     { pid: 0x1F, name: 'Run time since start', unit: 's', f: '(A×256)+B', enc: (S) => b2(S.running ? S.runT : 0), dec: (A, B) => A * 256 + B },
     { pid: 0x21, name: 'Distance with MIL on', unit: 'km', f: '(A×256)+B', enc: (S) => b2(S.distMil), dec: (A, B) => A * 256 + B },
     { pid: 0x2F, name: 'Fuel tank level', unit: '%', f: 'A×100/255', enc: (S) => b1(S.fuelLevel * 2.55), dec: (A) => (A * 100) / 255 },
     { pid: 0x33, name: 'Barometric pressure', unit: 'kPa', f: 'A', enc: (S) => b1(S.baro), dec: (A) => A },
     { pid: 0x42, name: 'Control module voltage', unit: 'V', f: '((A×256)+B)/1000', enc: (S) => b2(S.vbat * 1000), dec: (A, B) => (A * 256 + B) / 1000 },
-    { pid: 0x44, name: 'Commanded equivalence ratio (λ)', unit: '', f: '((A×256)+B)×2/65536', enc: (S) => b2(((S.running ? S.lambdaTarget : 1) * 65536) / 2), dec: (A, B) => ((A * 256 + B) * 2) / 65536 },
+    { pid: 0x44, only: ['na', 'turbo'], name: 'Commanded equivalence ratio (λ)', unit: '', f: '((A×256)+B)×2/65536', enc: (S) => b2(((S.running ? S.lambdaTarget : 1) * 65536) / 2), dec: (A, B) => ((A * 256 + B) * 2) / 65536 },
     { pid: 0x46, name: 'Ambient air temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.ambient + 40), dec: (A) => A - 40 },
     { pid: 0x5C, name: 'Engine oil temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.oilT + 40), dec: (A) => A - 40 },
+    { pid: 0x23, only: ['diesel'], name: 'Fuel rail pressure (diesel)', unit: 'kPa', f: '((A×256)+B)×10', enc: (S) => b2(S.rail * 10), dec: (A, B) => (A * 256 + B) * 10 },
+    { pid: 0x24, only: ['diesel'], name: 'Wideband λ B1S1', unit: '', f: '((A×256)+B)×2/65536', enc: (S) => b2((Math.min(Number.isNaN(S.lambdaWB) ? 1 : S.lambdaWB, 1.99) * 65536) / 2), dec: (A, B) => ((A * 256 + B) * 2) / 65536 },
+    { pid: 0x2C, only: ['diesel'], name: 'Commanded EGR', unit: '%', f: 'A×100/255', enc: (S) => b1(S.egrCmd * 255), dec: (A) => (A * 100) / 255 },
+    { pid: 0x5D, only: ['diesel'], name: 'Fuel injection timing', unit: '°', f: '((A×256)+B)/128 − 210', enc: (S) => b2((S.soi + 210) * 128), dec: (A, B) => (A * 256 + B) / 128 - 210 },
     { pid: 0x5E, name: 'Engine fuel rate', unit: 'L/h', f: '((A×256)+B)/20', enc: (S) => b2(((S.fuelRateGs * 3600) / 740) * 20), dec: (A, B) => (A * 256 + B) / 20 },
   ];
   const byPid = Object.fromEntries(PIDS.map((p) => [p.pid, p]));
@@ -41,6 +45,7 @@
   // PID 03 fuel system status (bit field): 1 OL cold · 2 CL · 4 OL load/decel · 8 OL system fault
   function fuelStatus(S) {
     if (!S.running) return 0;
+    if (S.E.diesel) return 4; // compression ignition: always "open loop" in the λ = 1 sense
     if (S.closedLoop) return 2;
     if (S.o2Dead) return 8;
     if (S.ect < 35 || S.o2Temp < 350) return 1;
@@ -56,15 +61,27 @@
     { key: 'o2', name: 'Oxygen sensor', bit: 5 },
     { key: 'o2heater', name: 'Oxygen sensor heater', bit: 6 },
   ];
+  // compression-ignition monitors (PID 01 byte B bit 3 = 1 switches the meaning of C/D)
+  const MONITORS_D = [
+    { key: 'misfire', name: 'Misfire', continuous: true },
+    { key: 'fuel', name: 'Fuel system' },
+    { key: 'comp', name: 'Comprehensive components', continuous: true },
+    { key: 'cat', name: 'NMHC catalyst (DOC)', bit: 0 },
+    { key: 'boost', name: 'Boost pressure system', bit: 3 },
+    { key: 'exhaust', name: 'Exhaust gas sensor', bit: 5 },
+    { key: 'pm', name: 'Particulate filter', bit: 6 },
+    { key: 'egr', name: 'EGR system', bit: 7 },
+  ];
+  const monitorsFor = (S) => (S.E.diesel ? MONITORS_D : MONITORS);
   function monitorStatus(S) {
     const dtcs = Object.values(S.dtc);
     const mil = dtcs.some((d) => d.mil) ? 0x80 : 0;
     const A = mil | Math.min(dtcs.length, 127);
     // B: bit0-2 misfire/fuel/components supported, bit4-6 incomplete; bit3 = 0 (spark ignition)
     const inc = (k) => (S.monitors[k] ? 0 : 1);
-    const B = 0b0111 | (inc('misfire') << 4) | (inc('fuel') << 5) | (inc('comp') << 6);
+    const B = 0b0111 | (S.E.diesel ? 0b1000 : 0) | (inc('misfire') << 4) | (inc('fuel') << 5) | (inc('comp') << 6);
     let C = 0, D = 0;
-    for (const m of MONITORS) if (m.bit != null) { C |= 1 << m.bit; D |= inc(m.key) << m.bit; }
+    for (const m of monitorsFor(S)) if (m.bit != null) { C |= 1 << m.bit; D |= inc(m.key) << m.bit; }
     return [A, B, C, D];
   }
 
@@ -85,12 +102,13 @@
     if (pid === 0x01) data = monitorStatus(S);
     else if (pid === 0x03) data = [fuelStatus(S), 0];
     else data = byPid[pid].enc(S);
+    if (S.E.diesel && pid === 0x03) data = [fuelStatus(S), 0];
     const p = byPid[pid];
     const value = p ? p.dec(data[0], data[1]) : null;
     return { req: `01 ${hex(pid)}`, resp: ['41', hex(pid), ...data.map(hex)].join(' '), bytes: data, value };
   }
 
-  ECU.OBD = { PIDS, MONITORS, byPid, hex, mode01, monitorStatus, fuelStatus, dtcBytes, dtcFromBytes, VIN: { na: 'SIMECU20NA0000001', turbo: 'SIMECU20TB0000001' } };
+  ECU.OBD = { PIDS, MONITORS, MONITORS_D, monitorsFor, byPid, hex, mode01, monitorStatus, fuelStatus, dtcBytes, dtcFromBytes, VIN: { na: 'SIMECU20NA0000001', turbo: 'SIMECU20TB0000001', diesel: 'SIMECU20TD0000001' } };
 
   // ================= browser UI =================
   const TABS = [
@@ -170,7 +188,7 @@
       html = `<p class="scan-off">${T('No response — turn the ignition ON so the ECU can answer.')}</p>`;
     } else if (this.tab === 'live') {
       // round-robin polling like a real tool (one request per tick), all rows refreshed from state
-      const list = O.PIDS;
+      const list = O.PIDS.filter((q) => ECU.appliesTo(q, S.type));
       const p = list[this.poll++ % list.length];
       const ex = O.mode01(S, p.pid);
       this.log(ex.req, ex.resp);
@@ -194,14 +212,16 @@
       const fs = O.mode01(S, 0x03);
       const access = this.codeAccess();
       const [A] = ms.bytes;
-      const incomplete = O.MONITORS.filter((m) => !S.monitors[m.key]).length;
+      const incomplete = O.monitorsFor(S).filter((m) => !S.monitors[m.key]).length;
       html = `<div class="scan-kv"><span>MIL</span><b class="${A & 0x80 ? 'bad' : 'ok'}">${A & 0x80 ? T('ON') : T('off')}</b>
           <span>${T('Stored codes')}</span><b>${access === 'ok' ? A & 0x7f : '🔒'}</b>
           <span>${T('Fuel system')}</span><b>${T(FUEL_STATUS[fs.bytes[0]])}</b></div>
         <table class="scan-t"><thead><tr><th>${T('Monitor')}</th><th>${T('Type')}</th><th>${T('Status')}</th></tr></thead><tbody>` +
-        O.MONITORS.map((m) => `<tr><td>${T(m.name)}</td><td>${m.continuous ? T('continuous') : T('once per drive')}</td><td class="${S.monitors[m.key] ? 'ok' : 'warn'}">${S.monitors[m.key] ? '✓ ' + T('complete') : '… ' + T('incomplete')}</td></tr>`).join('') +
+        O.monitorsFor(S).map((m) => `<tr><td>${T(m.name)}</td><td>${m.continuous ? T('continuous') : T('once per drive')}</td><td class="${S.monitors[m.key] ? 'ok' : 'warn'}">${S.monitors[m.key] ? '✓ ' + T('complete') : '… ' + T('incomplete')}</td></tr>`).join('') +
         `</tbody></table><p class="hint">${incomplete ? T('{n} monitor(s) not yet run — an inspection station would reject the car until they complete.', { n: incomplete }) : T('All monitors complete — ready for inspection.')}</p>`;
-      this.decodeEl.innerHTML = `<b>${T('Monitor status (PID 01)')}</b><div class="mono">← ${ms.resp}</div><div class="mono">A bit7 = MIL · A bits0–6 = ${T('code count')}</div><div class="mono">C = ${T('supported')} · D = ${T('incomplete')} (bit0 ${T('catalyst')}, bit5 O2, bit6 ${T('O2 heater')})</div>`;
+      this.decodeEl.innerHTML = `<b>${T('Monitor status (PID 01)')}</b><div class="mono">← ${ms.resp}</div><div class="mono">A bit7 = MIL · A bits0–6 = ${T('code count')}</div>` + (S.E.diesel
+        ? `<div class="mono">B bit3 = 1 → ${T('compression ignition')} · C/D: bit0 NMHC, bit3 ${T('boost')}, bit5 ${T('exhaust sensor')}, bit6 PM, bit7 EGR</div>`
+        : `<div class="mono">C = ${T('supported')} · D = ${T('incomplete')} (bit0 ${T('catalyst')}, bit5 O2, bit6 ${T('O2 heater')})</div>`);
     } else if (this.tab === 'freeze') {
       const access = this.codeAccess();
       const f = S.freeze;
@@ -224,7 +244,7 @@
     } else {
       const vin = O.VIN[S.type];
       if (now - (this.lastVin || 0) > 1500) { this.log('09 02', '49 02 01 ' + vin.split('').map((c) => O.hex(c.charCodeAt(0))).join(' ').slice(0, 29) + '…', 'VIN'); this.lastVin = now; }
-      html = `<div class="scan-kv"><span>VIN</span><b class="mono">${vin}</b><span>${T('Calibration ID')}</span><b class="mono">ECUSIM-${S.type === 'turbo' ? '20T' : '20N'}-${ECU.CAL_AXES.rpm.length}${Object.keys(S.cal).length}</b>
+      html = `<div class="scan-kv"><span>VIN</span><b class="mono">${vin}</b><span>${T('Calibration ID')}</span><b class="mono">ECUSIM-${S.type === 'turbo' ? '20T' : S.type === 'diesel' ? '20D' : '20N'}-${ECU.CAL_AXES.rpm.length}${Object.keys(S.cal).length}</b>
         <span>${T('ECU name')}</span><b>ECM-EngineControl</b><span>${T('Protocol')}</span><b class="mono">ISO 15765-4 CAN 11/500</b><span>${T('OBD standard')}</span><b>EOBD</b></div>`;
       this.decodeEl.innerHTML = `<b>${T('Mode 09 — vehicle information')}</b><div>${T('The VIN comes back as ASCII bytes spread over several CAN frames.')}</div>`;
     }
