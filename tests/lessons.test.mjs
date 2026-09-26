@@ -5,7 +5,7 @@ import { ECU, run } from './helpers.mjs';
 // minimal stand-in for the browser app: everything the lesson scripts touch
 function fakeApp() {
   const app = {
-    S: ECU.createState('na'), paused: false, pedalBase: 0, stockMode: false, pendingStart: false,
+    S: ECU.createState('na'), paused: false, dyno: null, pedalBase: 0, stockMode: false, pendingStart: false,
     selectEngine(type) { this.S = ECU.createState(type, this.S); this.S.cal = ECU.makeCal(ECU.ENGINES[type]); },
     setSpeed() {}, togglePause() { this.paused = !this.paused; },
     quickStart() { if (!this.S.ecuOn) { this.S.key = 'ON'; this.pendingStart = true; } else this.S.key = 'START'; },

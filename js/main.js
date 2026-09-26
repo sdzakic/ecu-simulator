@@ -32,6 +32,7 @@
       $('#pauseBtn span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
       this.ui.renderBrain(this.S);
       this.maps.relabel();
+      this.dyno.relabel();
     },
     // ---------- calibration maps: user-edited per engine, saved in the browser ----------
     calStore: {},
@@ -104,6 +105,7 @@
   app.ui = new ECU.UI(app);
   app.S.cal = app.calFor(app.S.type);
   app.maps = new ECU.MapsView(app);
+  app.dyno = new ECU.DynoView(app);
   app.lessons = new ECU.Lessons(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
@@ -149,6 +151,7 @@
     if (tDiag > 0.12 && app.ui.readings) { tDiag = 0; app.diagram.updateValues(app.ui.readings); }
     if (tBrain > 0.2) { tBrain = 0; app.ui.renderBrain(S); }
     app.maps.render(S);
+    app.dyno.render(S);
     if (tNow > 0.1) {
       tNow = 0;
       $('#nowBox').innerHTML = app.engine.describe(S, th);

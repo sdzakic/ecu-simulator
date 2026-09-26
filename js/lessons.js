@@ -214,6 +214,8 @@
   Lessons.prototype.closePicker = function () { this.picker.classList.remove('open'); };
 
   Lessons.prototype.start = function (id) {
+    if (this.app.S.dyno) ECU.abortDyno(this.app.S, 'a lesson started');
+    if (this.app.dyno) this.app.dyno.pending = false;
     this.lesson = LESSONS.find((l) => l.id === id);
     this.lesson.setup(this.app);
     this.card.classList.add('open');

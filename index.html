@@ -197,6 +197,18 @@
       </div>
     </section>
 
+    <!-- ============ DYNO ============ -->
+    <section class="panel dyno">
+      <div class="panel-h">
+        <h2><span data-i18n>Dyno</span> <span class="sub" data-i18n>engine dyno · full-throttle sweep · overlay runs to compare</span></h2>
+        <div class="seg small" id="dynoViews"></div>
+      </div>
+      <div class="dyno-body">
+        <div class="canvas-wrap"><canvas id="dynoCanvas" height="340" aria-label="Dyno chart"></canvas></div>
+        <div class="dyno-side" id="dynoSide"></div>
+      </div>
+    </section>
+
     <!-- ============ DIAGRAM ============ -->
     <section class="panel diagram">
       <div class="panel-h">
@@ -299,6 +311,7 @@
   <script src="js/trend-view.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/maps-view.js"></script>
+  <script src="js/dyno-view.js"></script>
   <script src="js/lessons.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -31,6 +31,10 @@ The ECU runs on real lookup tables: **spark advance** and **target λ** (rpm × 
 
 The stock tables are generated from the same models the simulated engine obeys (best-torque timing, knock limit, breathing), so a stock ECU is well calibrated. Edits only change what the ECU *asks for*; the physics stays honest. Too much spark advance knocks, a lean full-load λ runs hot, and extra boost costs spark timing.
 
+## Dyno
+
+An engine-dyno sweep: the dyno holds full throttle in neutral, settles at 1500 rpm, then ramps engine speed at a fixed rate (slow / normal / fast) and records brake torque in 50 rpm bins. Switch the chart between torque & power, boost, spark and λ; hover for values; red ticks mark knock. Up to six runs are overlaid and labelled automatically (engine, fuel, boost scale, stock/modified maps, faults), so you can pull, edit a map, and pull again. Fast sweeps expose turbo lag; low-octane fuel shows up as knock-limited torque.
+
 ## Languages
 
 Croatian is the default; switch with **HR / EN** in the top-right corner (the choice is remembered). English source strings are the translation keys: `js/i18n-hr.js` holds UI strings and `js/info-hr.js` the long sensor/actuator/fault explanations. After changing any text, run `node scripts/check-i18n.mjs` to list strings that still need a Croatian translation.

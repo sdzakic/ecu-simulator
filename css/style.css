@@ -141,6 +141,7 @@ body.controls-collapsed .panel-toggle .pt-fill { opacity: 0; }
     "wheels sensors"
     "scope scope"
     "maps maps"
+    "dyno dyno"
     "diagram brain"
     "trends log"
     "actuators actuators";
@@ -152,6 +153,7 @@ body.controls-collapsed .panel-toggle .pt-fill { opacity: 0; }
 .sensors { grid-area: sensors; align-self: stretch; }
 .scope { grid-area: scope; }
 .maps { grid-area: maps; }
+.dyno { grid-area: dyno; }
 .diagram { grid-area: diagram; }
 .brain { grid-area: brain; align-self: stretch; }
 .trends { grid-area: trends; }
@@ -162,7 +164,7 @@ body.controls-collapsed .panel-toggle .pt-fill { opacity: 0; }
   .shell { grid-template-columns: 290px minmax(0, 1fr); }
   .layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "cluster" "engine" "wheels" "sensors" "scope" "maps" "diagram" "brain" "trends" "log" "actuators";
+    grid-template-areas: "cluster" "engine" "wheels" "sensors" "scope" "maps" "dyno" "diagram" "brain" "trends" "log" "actuators";
   }
   .sensor-list { max-height: none !important; columns: 2; column-gap: 12px; }
 }
@@ -534,3 +536,24 @@ body.is-turbo .diag .na-only { display: none; }
 .mfoot { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; }
 .mfoot .btn:disabled { opacity: .4; cursor: not-allowed; }
 .mlock { font-size: 11.5px; color: var(--accent); background: rgba(46, 230, 197, .08); border: 1px solid rgba(46, 230, 197, .3); border-radius: 10px; padding: 7px 10px; }
+
+/* ================= DYNO ================= */
+.dyno-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .dyno-body { grid-template-columns: minmax(0, 1fr); } }
+#dynoCanvas { border-radius: 8px; background: #0a1017; cursor: crosshair; }
+.dyno-side { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.dyno-side .slider-lbl { margin: 4px 0 0; }
+.dyno-side .seg button small { color: var(--dim); font-family: var(--mono); font-size: 9.5px; }
+.dyno-side .seg button:disabled { opacity: .45; cursor: not-allowed; }
+.dbtn { width: 100%; padding: 9px 12px; font-size: 13px; }
+.dbtn:disabled { opacity: .45; cursor: not-allowed; }
+.dstatus { font-size: 11.5px; color: var(--muted); min-height: 16px; }
+.druns-h { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+.druns { display: flex; flex-direction: column; gap: 5px; }
+.drun { display: grid; grid-template-columns: 26px 1fr 26px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; background: var(--bg2); border: 1px solid var(--line); }
+.drun.off { opacity: .45; }
+.dvis { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line2); background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.dvis i { width: 12px; height: 4px; border-radius: 2px; display: block; }
+.dlabel { display: flex; flex-direction: column; min-width: 0; }
+.dlabel b { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dlabel span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }

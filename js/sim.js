@@ -235,6 +235,8 @@
     const omega = (S.rpm * Math.PI) / 30;
 
     /* ================= THROTTLE ACTUATOR ================= */
+    const dynoOn = S.dyno && (S.dyno.phase === 'settle' || S.dyno.phase === 'pull');
+    if (dynoOn) { S.pedal = 100; S.gear = 0; S.brake = false; } // the dyno operator holds WOT in neutral
     const thrTarget = S.ecuOn && !F.tps ? S.throttleCmd : 7; // spring "limp-home" position
     S.throttle += (thrTarget - S.throttle) * (1 - Math.exp(-dt / 0.035));
 
@@ -366,6 +368,7 @@
     let newOmega = omega + (Tnet / J_ENG) * dt;
     if (S.rpm < 120 && !S.cranking && Tind < 5) newOmega -= 60 * dt;
     newOmega = Math.max(0, newOmega);
+    if (dynoOn && S.rpm > 300) newOmega = (S.dyno.rpm * Math.PI) / 30; // dyno absorbs the torque and dictates speed
     S.rpm = (newOmega * 30) / Math.PI;
     S.crank = (S.crank + S.rpm * 6 * dt) % 720;
     S.power = Math.max(0, S.torque) * newOmega / 1000;
@@ -506,6 +509,7 @@
 
     /* ================= ECU ================= */
     ecuStep(S, dt, loadN);
+    if (S.dyno) dynoStep(S, dt);
   }
 
   function ecuStep(S, dt, loadTrue) {
@@ -799,6 +803,51 @@
   }
 
   ECU.step = step;
+
+  /* ---------- Engine dyno: speed-controlled full-throttle sweep ----------
+     settle at the start speed, then ramp rpm at `rate` rpm/s and average the brake torque in
+     50 rpm bins. The absorber holds speed exactly, so the curve is the engine's own torque. */
+  ECU.startDyno = function (S, { start = 1500, end = S.E.redline - 150, rate = 400, settle = 1.2 } = {}) {
+    S.dyno = { phase: 'settle', rpm: start, start, end, rate, settle, t: 0, samples: [], nextBin: start + 50, acc: null, k0: S.knockCount };
+    S.gear = 0; S.v = 0;
+    log(S, 'Dyno: full throttle at {r} rpm, sweeping to {e} rpm at {rate} rpm/s…', 'info', { r: start, e: end, rate });
+  };
+  ECU.abortDyno = function (S, reason) {
+    if (!S.dyno) return;
+    S.dyno.phase = 'aborted';
+    S.dyno.reason = reason;
+    S.pedal = 0;
+    log(S, 'Dyno pull aborted: {why}.', 'warn', { why: { k: reason } });
+  };
+  function dynoStep(S, dt) {
+    const d = S.dyno;
+    if (d.phase !== 'settle' && d.phase !== 'pull') return;
+    if (!S.running) { ECU.abortDyno(S, 'engine not running'); return; }
+    if (d.phase === 'settle') {
+      d.t += dt;
+      if (d.t >= d.settle) { d.phase = 'pull'; d.acc = null; }
+      return;
+    }
+    d.rpm = Math.min(d.end, d.rpm + d.rate * dt);
+    const a = d.acc || (d.acc = { n: 0, tq: 0, boost: 0, lam: 0, spark: 0, egt: 0, k: S.knockCount });
+    a.n++; a.tq += S.torque; a.boost += S.boostP - S.baro; a.lam += Math.min(S.lambda, 2); a.spark += S.spark; a.egt += S.egt;
+    if (d.rpm >= d.nextBin || d.rpm >= d.end) {
+      const rpm = d.nextBin - 25;
+      const tq = a.tq / a.n;
+      d.samples.push({ rpm, tq, kw: (tq * rpm * Math.PI) / 30 / 1000, boost: a.boost / a.n, lam: a.lam / a.n, spark: a.spark / a.n, egt: a.egt / a.n, knock: S.knockCount - a.k });
+      d.acc = null;
+      d.nextBin += 50;
+    }
+    if (d.rpm >= d.end) {
+      d.phase = 'done';
+      S.pedal = 0;
+      const pk = d.samples.reduce((m, x) => (x.tq > m.tq ? x : m), d.samples[0]);
+      const pp = d.samples.reduce((m, x) => (x.kw > m.kw ? x : m), d.samples[0]);
+      d.peak = { tq: pk.tq, tqRpm: pk.rpm, kw: pp.kw, kwRpm: pp.rpm };
+      log(S, 'Dyno pull done: peak torque {t} Nm @ {tr} rpm, peak power {p} kW ({hp} hp) @ {pr} rpm.', 'ok',
+        { t: pk.tq.toFixed(0), tr: pk.rpm, p: pp.kw.toFixed(0), hp: (pp.kw * 1.341).toFixed(0), pr: pp.rpm });
+    }
+  }
 
   /* Crank-angle domain helpers used by the views */
 
