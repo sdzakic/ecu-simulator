@@ -30,8 +30,8 @@ Croatian is the default; switch with **HR / EN** in the top-right corner (the ch
 
 Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % / 5 % / 20 % / Real) so you can follow each event. Pause with `P` and drag across the timing scope to scrub the crank angle.
 
-## Deploying to a Gist
+## Deploying to GitHub Pages
 
-`.github/workflows/deploy-gist.yml` runs on every push to `main`. It bundles the app into one self-contained `index.html` (`node scripts/bundle.mjs`, which writes `dist/`) and pushes it to a GitHub Gist.
+`.github/workflows/deploy-pages.yml` runs on every push to `main`. It checks translation coverage, then publishes `index.html`, `css/` and `js/` to GitHub Pages. No build step is needed; all paths are relative, so the site works under `https://<user>.github.io/<repo>/`.
 
-Setup: create a gist and a token with the `gist` scope, then add the repo secrets `GIST_ID` and `GIST_TOKEN`. The page is then live at `https://gistpreview.github.io/?<GIST_ID>`.
+One-time setup: in the repo go to Settings → Pages → Build and deployment and set Source to **GitHub Actions**.
