@@ -3,6 +3,7 @@
   const ECU = window.ECU;
   const { fit, rr, glow, noGlow, rgba } = ECU.draw;
   const C = ECU.C;
+  const T = (s, v) => ECU.t(s, v);
   const A0 = Math.PI * 0.75, SWEEP = Math.PI * 1.5;
 
   function ClusterView(canvas) { this.canvas = canvas; this.disp = { rpm: 0, v: 0, map: 101 }; }
@@ -24,7 +25,7 @@
     const tachX = narrow ? w * 0.26 : w * 0.19, speedX = narrow ? w * 0.74 : w * 0.81, gy = narrow ? 108 : 112;
 
     this.gauge(ctx, tachX, gy, R, d.rpm / 8000, {
-      major: 9, minor: 4, labels: (i) => String(i), red: E.redline / 8000, unit: '×1000 rpm',
+      major: 9, minor: 4, labels: (i) => String(i), red: E.redline / 8000, unit: T('×1000 rpm'),
       big: Math.round(d.rpm / 10) * 10, bigUnit: 'rpm', col: C.accent, lit: S.ecuOn,
     });
     this.gauge(ctx, speedX, gy, R, d.v / 240, {
@@ -36,7 +37,7 @@
     if (E.turbo) {
       const bar = (d.map - S.baro) / 100;
       this.gauge(ctx, cxm, cym, Rm, (bar + 1) / 2.8, {
-        major: 7, minor: 2, labels: (i) => (i * 0.4 - 1 === 0 ? '0' : (i * 0.4 - 1).toFixed(1)), unit: 'boost bar', big: bar.toFixed(2), bigUnit: 'bar', col: C.hot, lit: S.ecuOn,
+        major: 7, minor: 2, labels: (i) => (i * 0.4 - 1 === 0 ? '0' : (i * 0.4 - 1).toFixed(1)), unit: T('boost bar'), big: bar.toFixed(2), bigUnit: 'bar', col: C.hot, lit: S.ecuOn,
         zeroAt: 1 / 2.8, small: true, red: (S.boostTarget + 0.35 + 1) / 2.8,
       });
     } else {
@@ -48,10 +49,10 @@
     // digital strip
     const sy = narrow ? 216 : 178;
     const items = [
-      ['GEAR', S.gear === 0 ? 'N' : String(S.gear), C.text],
+      [T('GEAR'), S.gear === 0 ? 'N' : String(S.gear), C.text],
       ['λ', S.rpm > 300 && S.lambda < 5 ? S.lambda.toFixed(2) : '—', S.lambda < 0.95 ? C.fuel : S.lambda > 1.05 ? C.air : C.ok],
-      ['TORQUE', `${Math.max(0, S.torque).toFixed(0)} Nm`, C.text],
-      ['POWER', `${(S.power * 1.341).toFixed(0)} hp`, C.text],
+      [T('TORQUE'), `${Math.max(0, S.torque).toFixed(0)} Nm`, C.text],
+      [T('POWER'), `${(S.power * 1.341).toFixed(0)} ${T('hp')}`, C.text],
     ];
     const iw = narrow ? w / 4 : Math.min(84, (w * 0.38) / 4);
     const sx = w / 2 - (iw * items.length) / 2;

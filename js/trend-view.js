@@ -64,14 +64,14 @@
     for (let i = 0; i <= 4; i++) { const yy = py + (ph * i) / 4; ctx.beginPath(); ctx.moveTo(px, yy); ctx.lineTo(px + pw, yy); ctx.stroke(); }
     ctx.fillStyle = C.text;
     ctx.font = '700 11px Inter, sans-serif';
-    ctx.fillText(chart.title, x + 10, y + 16);
+    ctx.fillText(ECU.t(chart.title), x + 10, y + 16);
     const last = this.buf[this.buf.length - 1] || {};
     // legend w/ values
     let lx = x + 10;
     ctx.font = '600 9.5px "JetBrains Mono", monospace';
     chart.series.forEach((s) => {
       const v = last[s.k];
-      const t = `${s.name} ${v == null || isNaN(v) ? '—' : s.fmt(v)}`;
+      const t = `${ECU.t(s.name)} ${v == null || isNaN(v) ? '—' : s.fmt(v)}`;
       ctx.fillStyle = s.col;
       ctx.fillRect(lx, y + 24, 8, 3);
       ctx.fillText(t, lx + 11, y + 29);

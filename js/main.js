@@ -16,15 +16,26 @@
       const prev = this.S;
       this.S = ECU.createState(type, prev);
       document.body.classList.toggle('is-turbo', type === 'turbo');
-      ECU.log(this.S, `Engine swapped: ${this.S.E.label}. ${type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.'}`, 'info');
+      ECU.log(this.S, 'Engine swapped: {label}. {detail}', 'info', {
+        label: { k: this.S.E.label },
+        detail: { k: type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.' },
+      });
       this.pedalBase = 0;
       document.querySelectorAll('#acBtn,#lightsBtn').forEach((b) => b.classList.toggle('on', !!this.S[b.id === 'acBtn' ? 'ac' : 'lights']));
+    },
+    // language switched: views that bake text into DOM/SVG get rebuilt
+    relabel() {
+      const sel = this.ui.selected;
+      this.diagram = new ECU.DiagramView($('#diagramWrap'), (id) => this.ui.openSensor(id));
+      if (sel && sel.type === 's') this.diagram.select(sel.id);
+      $('#pauseBtn span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
+      this.ui.renderBrain(this.S);
     },
     togglePause() {
       this.paused = !this.paused;
       const b = $('#pauseBtn');
       b.classList.toggle('paused', this.paused);
-      b.querySelector('span').textContent = this.paused ? 'Resume' : 'Pause';
+      b.querySelector('span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
       b.querySelector('svg').innerHTML = this.paused ? '<path d="M7 5l12 7-12 7z"/>' : '<path d="M7 5h3v14H7zM14 5h3v14h-3z"/>';
       if (this.paused) ECU.log(this.S, 'Paused — drag across the timing scope to scrub the crank angle.', 'info');
     },
@@ -39,6 +50,8 @@
   };
   window.app = app;
 
+  ECU.applyStatic();
+  $('#pauseBtn span').textContent = ECU.t('Pause');
   app.engine = new ECU.EngineView($('#engineCanvas'));
   app.wheels = new ECU.WheelView($('#wheelCanvas'));
   app.scope = new ECU.ScopeView($('#scopeCanvas'));

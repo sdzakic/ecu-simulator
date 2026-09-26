@@ -4,8 +4,8 @@
   const { fit, rr, glow, noGlow, hash, rgba } = ECU.draw;
   const C = ECU.C;
   const STROKE_COL = ['#ff7a3d', '#a08a7a', '#3fc6ff', '#b98cff'];
-  const STROKE_LET = ['P', 'E', 'I', 'C'];
   const STROKE_WORD = ['POWER', 'EXHAUST', 'INTAKE', 'COMPRESSION'];
+  const T = (s, v) => ECU.t(s, v);
   const CYL_COL = ['#ff7a8a', '#62d0ff', '#ffd166', '#8cf08a'];
 
   function ScopeView(canvas) {
@@ -23,15 +23,15 @@
     const rows = [];
     let y = 26;
     const add = (id, label, h, extra) => { rows.push(Object.assign({ id, label, y, h }, extra || {})); y += h; };
-    for (let c = 0; c < 4; c++) add('stroke' + c, `Cyl ${c + 1} stroke`, 13, { c, kind: 'stroke', info: null });
+    for (let c = 0; c < 4; c++) add('stroke' + c, 'Strokes 1–4', 13, { c, kind: 'stroke', info: null });
     y += 8;
     add('ckp', 'CKP crank', 50, { kind: 'ckp', info: 'ckp' });
     y += 4;
     add('cmp', 'CMP cam', 28, { kind: 'cmp', info: 'cmp' });
     y += 8;
-    for (let c = 0; c < 4; c++) add('inj' + c, `Injector ${c + 1}`, 17, { c, kind: 'inj', info: 'act:inj' });
+    for (let c = 0; c < 4; c++) add('inj' + c, 'Injector {c}', 17, { c, kind: 'inj', info: 'act:inj' });
     y += 8;
-    for (let c = 0; c < 4; c++) add('ign' + c, `Coil ${c + 1}`, 19, { c, kind: 'ign', info: 'act:coil' });
+    for (let c = 0; c < 4; c++) add('ign' + c, 'Coil {c}', 19, { c, kind: 'ign', info: 'act:coil' });
     y += 8;
     add('knock', 'Knock sensor', 44, { kind: 'knock', info: 'knock' });
     y += 6;
@@ -84,7 +84,7 @@
         ctx.fillStyle = C.muted;
         ctx.textAlign = a === 720 ? 'right' : a === 0 ? 'left' : 'center';
         const cyl = { 0: 1, 180: 3, 360: 4, 540: 2, 720: 1 }[a];
-        ctx.fillText(small ? `${a}°` : `${a}° · TDC ${cyl}`, x, 13);
+        ctx.fillText(small ? `${a}°` : T('{a}° · TDC {c}', { a, c: cyl }), x, 13);
       }
     }
     ctx.textAlign = 'left';
@@ -95,9 +95,8 @@
       if (r.kind === 'stroke' && r.c > 0) continue;
       const col = r.kind === 'inj' ? C.fuel : r.kind === 'ign' ? C.spark : r.kind === 'ckp' ? C.accent : r.kind === 'cmp' ? C.cam : r.kind === 'knock' ? '#ff8fa0' : r.kind === 'crank' ? C.info : C.muted;
       ctx.fillStyle = col;
-      let label = r.label;
-      if (r.kind === 'stroke') label = 'Strokes 1–4';
-      if (small) label = label.replace('Injector ', 'INJ ').replace('Coil ', 'IGN ').replace(' sensor', '').replace(' crank', '').replace(' cam', '').replace('Crank speed', 'ω crank').replace('Strokes 1–4', 'Strokes');
+      const SHORT = { stroke: 'Strokes', ckp: 'CKP', cmp: 'CMP', inj: 'INJ {c}', ign: 'IGN {c}', knock: 'Knock', crank: 'ω crank' };
+      const label = T(small ? SHORT[r.kind] : r.label, { c: r.c + 1 });
       const yy = r.kind === 'stroke' ? r.y + 30 : r.y + r.h / 2 + 4;
       ctx.fillText(label, 8, yy);
       if (r.info && !small) { ctx.fillStyle = C.dim; ctx.fillText('ⓘ', x0 - 18, yy); }
@@ -125,7 +124,7 @@
               if (xb - xa > 30) {
                 ctx.fillStyle = STROKE_COL[s];
                 ctx.font = '700 8.5px Inter, sans-serif';
-                ctx.fillText(xb - xa > 90 && !small ? `${r.c + 1}·${STROKE_WORD[s]}` : `${r.c + 1}${STROKE_LET[s]}`, xa + 4, r.y + r.h - 3);
+                ctx.fillText(xb - xa > 90 && !small ? `${r.c + 1}·${T(STROKE_WORD[s])}` : `${r.c + 1}${T(STROKE_WORD[s]).charAt(0)}`, xa + 4, r.y + r.h - 3);
               }
             }
           }
@@ -160,7 +159,7 @@
         if (!small) {
           ctx.fillStyle = rgba(C.accent, 0.8);
           ctx.font = '600 8.5px Inter, sans-serif';
-          ctx.fillText('gap → tooth 1 = 90° BTDC', this.xOf(258) + 2, r.y + 9);
+          ctx.fillText(T('gap → tooth 1 = 90° BTDC'), this.xOf(258) + 2, r.y + 9);
         }
       } else if (r.kind === 'cmp') {
         const dead = S.faults.cmp || !alive;
@@ -177,7 +176,7 @@
           }
           ctx.stroke();
         });
-        if (S.faults.cmp) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText('NO SIGNAL — ECU in batch-fire / wasted-spark fallback', x0 + 8, mid + 3); }
+        if (S.faults.cmp) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('NO SIGNAL — ECU in batch-fire / wasted-spark fallback'), x0 + 8, mid + 3); }
       } else if (r.kind === 'inj') {
         const c = r.c;
         const on = alive && S.pw > 0 && !S.injCut[c] && !S.fuelCutAll && S.sync > 0;
@@ -215,7 +214,7 @@
           const t = `${S.pw.toFixed(2)} ms`;
           ctx.fillText(t, Math.min(this.xOf(g1) + 4, x1 - 50), r.y + r.h - 5);
         }
-        if (S.injCut[c]) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText('INJECTOR CUT (misfire protection)', x0 + 8, mid + 3); }
+        if (S.injCut[c]) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('INJECTOR CUT (misfire protection)'), x0 + 8, mid + 3); }
       } else if (r.kind === 'ign') {
         const c = r.c;
         const dead = S.faults.misfire3 && c === 2;
@@ -259,7 +258,7 @@
           const g = ((ECU.CYL_OFFSET[c] - adv) % 720 + 720) % 720;
           ctx.fillStyle = dead ? C.bad : C.spark;
           ctx.font = '600 8.5px "JetBrains Mono", monospace';
-          const t = dead ? 'coil dead' : `${adv.toFixed(1)}° BTDC${S.knockRetard[c] > 0.3 ? `  (−${S.knockRetard[c].toFixed(1)}° knock)` : ''}`;
+          const t = dead ? T('coil dead') : T('{a}° BTDC', { a: adv.toFixed(1) }) + (S.knockRetard[c] > 0.3 ? '  ' + T('(−{k}° knock)', { k: S.knockRetard[c].toFixed(1) }) : '');
           const tx = this.xOf(g) + 5;
           ctx.fillText(t, tx > x1 - 150 ? this.xOf(g) - ctx.measureText(t).width - 6 : tx, r.y + 10);
         }
@@ -272,7 +271,7 @@
           ctx.fillRect(xa, r.y, xb - xa, r.h - 1);
           ctx.fillStyle = rgba(CYL_COL[c], 0.7);
           ctx.font = '700 8px Inter';
-          ctx.fillText(`win ${c + 1}`, xa + 2, r.y + 9);
+          ctx.fillText(T('win {c}', { c: c + 1 }), xa + 2, r.y + 9);
         }
         const dead = S.faults.knocksensor;
         const nAmp = alive ? Math.min(1, 0.15 + rpm / 7000) : 0.03;
@@ -298,7 +297,7 @@
           }
           ctx.stroke();
         });
-        if (dead) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText('SENSOR FAILED — ECU is deaf, uses safe retarded spark', x0 + 8, mid + 3); }
+        if (dead) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('SENSOR FAILED — ECU is deaf, uses safe retarded spark'), x0 + 8, mid + 3); }
       } else if (r.kind === 'crank') {
         const scale = alive ? Math.max(0.3, Math.min(1.4, 1300 / Math.max(rpm, 300))) : 0;
         both(() => {
@@ -325,7 +324,7 @@
           ctx.fillStyle = 'rgba(255,77,94,0.12)';
           ctx.fillRect(xa, r.y, xb - xa, r.h - 1);
           ctx.fillStyle = C.bad; ctx.font = '700 9px Inter';
-          ctx.fillText('cyl 3 segment slows → misfire', xa + 4, r.y + 10);
+          ctx.fillText(T('cyl 3 segment slows → misfire'), xa + 4, r.y + 10);
         }
       }
     }

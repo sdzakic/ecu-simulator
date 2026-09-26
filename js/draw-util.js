@@ -17,7 +17,8 @@
   }
 
   function rr(ctx, x, y, w, h, r) {
-    r = Math.min(r, w / 2, h / 2);
+    w = Math.max(0, w); h = Math.max(0, h);
+    r = Math.max(0, Math.min(r, w / 2, h / 2)); // arcTo throws on negative radii (e.g. zero-width canvas)
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.arcTo(x + w, y, x + w, y + h, r);

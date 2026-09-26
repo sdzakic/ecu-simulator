@@ -3,10 +3,11 @@
   const ECU = window.ECU;
   const $ = (s) => document.querySelector(s);
   const clamp = ECU.util.clamp;
+  const T = (s, v) => ECU.t(s, v);
 
   // ---------- electrical signal helpers ----------
-  function ntcVolts(T) {
-    const R = 2500 * Math.exp(3450 * (1 / (T + 273.15) - 1 / 293.15));
+  function ntcVolts(temp) {
+    const R = 2500 * Math.exp(3450 * (1 / (temp + 273.15) - 1 / 293.15));
     return (5 * R) / (R + 2490);
   }
   const f1 = (v) => v.toFixed(1), f0 = (v) => v.toFixed(0), f2 = (v) => v.toFixed(2);
@@ -20,15 +21,15 @@
         const rpm = F.ckp ? 0 : S.rpm;
         const hz = (rpm / 60) * 58;
         r.value = f0(rpm); r.unit = 'rpm'; r.short = `${f0(rpm)} rpm`;
-        r.sig = F.ckp ? 'open circuit' : S.ckpType === 'vr' ? `±${f1(Math.max(0.2, S.rpm / 450))} V · ${f0(hz)} Hz` : `0/5 V · ${f0(hz)} Hz`;
+        r.sig = F.ckp ? T('open circuit') : S.ckpType === 'vr' ? `±${f1(Math.max(0.2, S.rpm / 450))} V · ${f0(hz)} Hz` : `0/5 V · ${f0(hz)} Hz`;
         r.status = F.ckp ? 'bad' : run ? 'live' : on ? 'ok' : 'off';
         r.frac = rpm / 8000;
         break;
       }
       case 'cmp': {
-        r.value = F.cmp ? 'NO SIG' : S.sync === 2 ? 'SYNC' : run ? 'waiting' : '—';
-        r.short = F.cmp ? 'NO SIG' : `${f1(S.vvt || 0)}° VVT`;
-        r.sig = F.cmp ? 'no pulses' : `0/5 V · ${f1(S.rpm / 120)} Hz`;
+        r.value = F.cmp ? T('NO SIG') : S.sync === 2 ? 'SYNC' : run ? T('waiting') : '—';
+        r.short = F.cmp ? T('NO SIG') : `${f1(S.vvt || 0)}° VVT`;
+        r.sig = F.cmp ? T('no pulses') : `0/5 V · ${f1(S.rpm / 120)} Hz`;
         r.status = F.cmp ? 'bad' : S.sync === 2 ? 'live' : on ? 'ok' : 'off';
         r.frac = (S.vvt || 0) / 35;
         break;
@@ -36,7 +37,7 @@
       case 'maf': {
         const v = F.maf ? 0 : S.mafTrue;
         r.value = f1(v); r.unit = 'g/s'; r.short = `${f1(v)} g/s`;
-        r.sig = F.maf ? '0.00 V (fault)' : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
+        r.sig = F.maf ? T('0.00 V (fault)') : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
         r.status = F.maf ? 'bad' : on ? 'ok' : 'off';
         r.frac = v / (S.E.turbo ? 230 : 130);
         break;
@@ -45,7 +46,7 @@
         const v = F.map ? 0 : S.map;
         const range = S.E.turbo ? 300 : 105;
         r.value = f0(v); r.unit = 'kPa'; r.short = `${f0(v)} kPa`;
-        r.sig = F.map ? '0.00 V (fault)' : `${f2(0.5 + (4 * v) / range)} V`;
+        r.sig = F.map ? T('0.00 V (fault)') : `${f2(0.5 + (4 * v) / range)} V`;
         r.status = F.map ? 'bad' : on ? 'ok' : 'off';
         r.frac = v / range;
         break;
@@ -70,8 +71,9 @@
         break;
       case 'o2up': {
         const v = S.o2v;
+        const rl = v > 0.45 ? T('RICH') : T('lean');
         r.value = f2(v); r.unit = 'V'; r.short = `${f2(v)} V`;
-        r.sig = F.o2 ? 'stuck lean' : S.o2Temp < 320 ? `cold (${f0(S.o2Temp)} °C)` : S.closedLoop ? `${v > 0.45 ? 'RICH' : 'lean'} · ${f1(S.o2Freq)} Hz` : v > 0.45 ? 'RICH' : 'lean';
+        r.sig = F.o2 ? T('stuck lean') : S.o2Temp < 320 ? T('cold ({t} °C)', { t: f0(S.o2Temp) }) : S.closedLoop ? `${rl} · ${f1(S.o2Freq)} Hz` : rl;
         r.status = F.o2 || S.o2Dead ? 'bad' : !on ? 'off' : S.o2Temp < 320 ? 'warn' : 'ok';
         r.frac = v;
         break;
@@ -79,7 +81,7 @@
       case 'o2dn': {
         const v = S.o2dn;
         r.value = f2(v); r.unit = 'V'; r.short = `${f2(v)} V`;
-        r.sig = F.cat ? 'mirrors upstream!' : S.o2Temp < 320 ? 'cold' : `cat O₂ store ${f0(S.catOsc * 100)} %`;
+        r.sig = F.cat ? T('mirrors upstream!') : S.o2Temp < 320 ? T('cold') : T('cat O₂ store {p} %', { p: f0(S.catOsc * 100) });
         r.status = S.dtc.P0420 ? 'bad' : !on ? 'off' : S.o2Temp < 320 ? 'warn' : 'ok';
         r.frac = v;
         break;
@@ -88,19 +90,19 @@
         const kn = Math.max(...S.knockTrue);
         const mv = F.knocksensor ? 0 : (run ? 40 + S.rpm * 0.05 : 5) + kn * 1400;
         r.value = f0(mv); r.unit = 'mV'; r.short = `${f0(mv)} mV`;
-        r.sig = F.knocksensor ? 'open circuit' : kn > 0.1 ? 'KNOCK detected!' : `${S.knockCount} events total`;
+        r.sig = F.knocksensor ? T('open circuit') : kn > 0.1 ? T('KNOCK detected!') : T('{n} events total', { n: S.knockCount });
         r.status = F.knocksensor ? 'bad' : S.t - S.lastKnockT < 1 ? 'warn' : on ? 'ok' : 'off';
         r.frac = mv / 1800;
         break;
       }
       case 'egt':
-        r.value = f0(S.egt); r.unit = '°C'; r.short = `${f0(S.egt)} °C`; r.sig = `${f1((S.egt * 41) / 1000)} mV (type K)`;
+        r.value = f0(S.egt); r.unit = '°C'; r.short = `${f0(S.egt)} °C`; r.sig = T('{v} mV (type K)', { v: f1((S.egt * 41) / 1000) });
         r.status = !on ? 'off' : S.egt > (S.E.turbo ? 950 : 920) ? 'warn' : 'ok'; r.frac = S.egt / 1050;
         break;
       case 'ect': {
         const t = F.ect ? -40 : S.ect;
         r.value = f0(t); r.unit = '°C'; r.short = `${f0(t)} °C`;
-        r.sig = F.ect ? '4.98 V (open)' : `${f2(ntcVolts(S.ect))} V`;
+        r.sig = F.ect ? T('4.98 V (open)') : `${f2(ntcVolts(S.ect))} V`;
         r.status = F.ect ? 'bad' : !on ? 'off' : S.ect > 110 ? 'bad' : S.ect < 40 ? 'warn' : 'ok';
         r.frac = (t + 40) / 170;
         break;
@@ -108,25 +110,26 @@
       case 'iat': {
         const t = F.iat ? -40 : S.iat;
         r.value = f0(t); r.unit = '°C'; r.short = `${f0(t)} °C`;
-        r.sig = F.iat ? '4.98 V (open)' : `${f2(ntcVolts(S.iat))} V`;
+        r.sig = F.iat ? T('4.98 V (open)') : `${f2(ntcVolts(S.iat))} V`;
         r.status = F.iat ? 'bad' : on ? 'ok' : 'off';
         r.frac = (t + 40) / 140;
         break;
       }
       case 'oilp':
-        r.value = f1(S.oilP); r.unit = 'bar'; r.short = `${f1(S.oilP)} bar`; r.sig = S.oilP < 0.45 ? 'switch CLOSED (low)' : `${f2(0.5 + S.oilP * 0.4)} V`;
+        r.value = f1(S.oilP); r.unit = 'bar'; r.short = `${f1(S.oilP)} bar`; r.sig = S.oilP < 0.45 ? T('switch CLOSED (low)') : `${f2(0.5 + S.oilP * 0.4)} V`;
         r.status = !on ? 'off' : S.oilP < 0.45 ? (run ? 'bad' : 'warn') : 'ok'; r.frac = S.oilP / 6;
         break;
       case 'oilt':
         r.value = f0(S.oilT); r.unit = '°C'; r.short = `${f0(S.oilT)} °C`; r.sig = `${f2(ntcVolts(S.oilT))} V`; r.frac = (S.oilT + 20) / 160;
         break;
-      case 'fuelp':
+      case 'fuelp': {
         const dp = S.fuelP - (S.map - S.baro) / 100;
-        r.value = f2(S.fuelP); r.unit = 'bar'; r.short = `${f1(S.fuelP)} bar`; r.sig = `Δp across inj. ${f2(dp)} bar`;
+        r.value = f2(S.fuelP); r.unit = 'bar'; r.short = `${f1(S.fuelP)} bar`; r.sig = T('Δp across inj. {v} bar', { v: f2(dp) });
         r.status = !on ? 'off' : dp < S.E.fuelBase * 0.8 && run ? 'bad' : S.fuelP < 1 ? 'warn' : 'ok'; r.frac = S.fuelP / 6;
         break;
+      }
       case 'vbat':
-        r.value = f1(S.vbat); r.unit = 'V'; r.short = `${f1(S.vbat)} V`; r.sig = S.rpm > 550 && !F.alt ? 'charging' : S.cranking ? 'cranking load' : 'battery only';
+        r.value = f1(S.vbat); r.unit = 'V'; r.short = `${f1(S.vbat)} V`; r.sig = S.rpm > 550 && !F.alt ? T('charging') : S.cranking ? T('cranking load') : T('battery only');
         r.status = !on ? 'off' : S.vbat < 11.8 ? 'bad' : S.vbat < 12.4 ? 'warn' : 'ok'; r.frac = (S.vbat - 9) / 6;
         break;
       case 'fuellvl':
@@ -136,29 +139,29 @@
       case 'boost': {
         const b = (S.boostP - S.baro) / 100;
         r.value = (b >= 0 ? '+' : '') + f2(b); r.unit = 'bar'; r.short = `${b >= 0 ? '+' : ''}${f2(b)} bar`;
-        r.sig = `${f0(S.boostP)} kPa abs · ${f2(0.5 + (4 * S.boostP) / 300)} V`;
+        r.sig = T('{p} kPa abs · {v} V', { p: f0(S.boostP), v: f2(0.5 + (4 * S.boostP) / 300) });
         r.status = !on ? 'off' : S.overboostCut ? 'bad' : 'ok'; r.frac = S.boostP / 280;
         break;
       }
       case 'cat':
-        r.value = f0(S.chargeT); r.unit = '°C'; r.short = `${f0(S.chargeT)} °C`; r.sig = `comp. out ${f0(S.compOutT)} °C`; r.frac = (S.chargeT + 20) / 140;
+        r.value = f0(S.chargeT); r.unit = '°C'; r.short = `${f0(S.chargeT)} °C`; r.sig = T('comp. out {t} °C', { t: f0(S.compOutT) }); r.frac = (S.chargeT + 20) / 140;
         break;
       case 'turbo':
-        r.value = f0(S.turbo); r.unit = 'krpm'; r.short = `${f0(S.turbo)} krpm`; r.sig = `${f0((S.turbo * 1000 * 12) / 60 / 1000)} kHz blade pass`; r.frac = S.turbo / 230;
+        r.value = f0(S.turbo); r.unit = 'krpm'; r.short = `${f0(S.turbo)} krpm`; r.sig = T('{v} kHz blade pass', { v: f0((S.turbo * 1000 * 12) / 60 / 1000) }); r.frac = S.turbo / 230;
         r.status = !on ? 'off' : S.turbo > 60 ? 'live' : 'ok';
         break;
       case 'wgpos':
-        r.value = f0(S.wgPos * 100); r.unit = '% open'; r.short = `${f0(S.wgPos * 100)} %`; r.sig = `cmd duty ${f0((1 - S.wgCmd) * 100)} %`;
+        r.value = f0(S.wgPos * 100); r.unit = T('% open'); r.short = `${f0(S.wgPos * 100)} %`; r.sig = T('cmd duty {v} %', { v: f0((1 - S.wgCmd) * 100) });
         r.status = F.wgstuck ? 'bad' : on ? 'ok' : 'off'; r.frac = S.wgPos;
         break;
       case 'vss':
         r.value = f0(S.v * 3.6); r.unit = 'km/h'; r.short = `${f0(S.v * 3.6)} km/h`; r.sig = `${f0(S.v * 3.6 * 1.9)} Hz`; r.frac = (S.v * 3.6) / 250;
         break;
       case 'brake':
-        r.value = S.brake ? 'ON' : 'off'; r.short = S.brake ? 'ON' : 'off'; r.sig = S.brake ? '12 V / 0 V' : '0 V / 12 V'; r.status = !on ? 'off' : S.brake ? 'live' : 'ok'; r.frac = S.brake ? 1 : 0;
+        r.value = S.brake ? T('ON') : T('off'); r.short = r.value; r.sig = S.brake ? '12 V / 0 V' : '0 V / 12 V'; r.status = !on ? 'off' : S.brake ? 'live' : 'ok'; r.frac = S.brake ? 1 : 0;
         break;
       case 'acsw':
-        r.value = S.ac ? 'ON' : 'off'; r.short = S.ac ? 'ON' : 'off'; r.sig = S.ac ? `${f1(14 + S.rpm / 800)} bar refrig.` : 'idle'; r.status = !on ? 'off' : S.ac ? 'live' : 'ok'; r.frac = S.ac ? 1 : 0;
+        r.value = S.ac ? T('ON') : T('off'); r.short = r.value; r.sig = S.ac ? T('{v} bar refrig.', { v: f1(14 + S.rpm / 800) }) : T('idle'); r.status = !on ? 'off' : S.ac ? 'live' : 'ok'; r.frac = S.ac ? 1 : 0;
         break;
       case 'amb':
         r.value = f0(S.ambient); r.unit = '°C'; r.short = `${f0(S.ambient)} °C`; r.sig = `${f2(ntcVolts(S.ambient))} V`; r.frac = (S.ambient + 30) / 80;
@@ -226,17 +229,34 @@
     this.hist = [];
     this.lastLogId = 0;
     this.dtcSig = '';
+    this.buildAll();
+    this.bindControls();
+    window.addEventListener('ecu:lang', () => this.relabel());
+  }
+
+  UI.prototype.buildAll = function () {
     this.buildSensors();
     this.buildFaults();
     this.buildLamps();
     this.buildActuators();
     this.buildLegend();
-    this.bindControls();
-  }
+    document.querySelectorAll('#langSel button').forEach((b) => b.classList.toggle('active', b.dataset.lang === ECU.lang));
+  };
+
+  // language switched: rebuild everything that holds translated text
+  UI.prototype.relabel = function () {
+    this.buildAll();
+    $('#logList').innerHTML = '';
+    this.lastLogId = 0;
+    this.dtcSig = null; // force the DTC list/counter to re-render (empty list included)
+    const sel = this.selected;
+    if (sel) sel.type === 's' ? this.openSensor(sel.id) : this.openActuator(sel.id);
+    this.app.relabel();
+  };
 
   UI.prototype.buildLegend = function () {
-    $('#strokeLegend').innerHTML = ECU.STROKES.map((s) => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('') +
-      `<span><i style="background:var(--fuel)"></i>Injection</span><span><i style="background:var(--spark)"></i>Spark</span>`;
+    $('#strokeLegend').innerHTML = ECU.STROKES.map((s) => `<span><i style="background:${s.color}"></i>${T(s.name)}</span>`).join('') +
+      `<span><i style="background:var(--fuel)"></i>${T('Injection')}</span><span><i style="background:var(--spark)"></i>${T('Spark')}</span>`;
   };
 
   UI.prototype.buildSensors = function () {
@@ -248,11 +268,11 @@
       if (!sens.length) continue;
       const box = document.createElement('div');
       box.className = 's-group' + (g.turboOnly ? ' turbo-only' : '');
-      box.innerHTML = `<h4>${g.name}</h4>`;
+      box.innerHTML = `<h4>${T(g.name)}</h4>`;
       for (const s of sens) {
         const row = document.createElement('div');
-        row.className = 'srow' + (s.turboOnly ? ' turbo-only' : '');
-        row.innerHTML = `<span class="led"></span><div><div class="sn"><span class="ab">${s.abbr}</span>${s.name}</div><div class="sbar"><i></i></div></div><div><div class="sv">—</div><div class="ssig"></div></div>`;
+        row.className = 'srow' + (s.turboOnly ? ' turbo-only' : '') + (this.selected && this.selected.id === s.id ? ' sel' : '');
+        row.innerHTML = `<span class="led"></span><div><div class="sn"><span class="ab">${s.abbr}</span>${ECU.info('sensors', s, 'name')}</div><div class="sbar"><i></i></div></div><div><div class="sv">—</div><div class="ssig"></div></div>`;
         row.addEventListener('click', () => this.openSensor(s.id));
         box.appendChild(row);
         this.sRows[s.id] = { row, led: row.querySelector('.led'), v: row.querySelector('.sv'), sig: row.querySelector('.ssig'), bar: row.querySelector('.sbar i') };
@@ -267,13 +287,13 @@
     this.faultEls = {};
     for (const f of ECU.FAULTS) {
       const b = document.createElement('button');
-      b.className = 'fault' + (f.turboOnly ? ' turbo-only' : '');
-      b.innerHTML = `<span class="sw"></span><span><div class="fn">${f.name}</div><div class="fh">${f.hint}</div></span><span class="fc">${f.dtc}</span>`;
+      b.className = 'fault' + (f.turboOnly ? ' turbo-only' : '') + (this.app.S.faults[f.id] ? ' on' : '');
+      b.innerHTML = `<span class="sw"></span><span><div class="fn">${ECU.info('faults', f, 'name')}</div><div class="fh">${ECU.info('faults', f, 'hint')}</div></span><span class="fc">${f.dtc}</span>`;
       b.addEventListener('click', () => {
         const S = this.app.S;
         S.faults[f.id] = !S.faults[f.id];
         b.classList.toggle('on', !!S.faults[f.id]);
-        ECU.log(S, `${S.faults[f.id] ? 'FAULT INJECTED' : 'Fault repaired'}: ${f.name}.`, S.faults[f.id] ? 'fault' : 'ok');
+        ECU.log(S, S.faults[f.id] ? 'FAULT INJECTED: {name}.' : 'Fault repaired: {name}.', S.faults[f.id] ? 'fault' : 'ok', { name: { k: f.name } });
       });
       box.appendChild(b);
       this.faultEls[f.id] = b;
@@ -288,8 +308,8 @@
       const el = document.createElement('div');
       el.className = 'lamp' + (l.turbo ? ' turbo-only' : '');
       el.style.setProperty('--c', l.c);
-      el.title = l.tip;
-      el.innerHTML = (l.icon || '') + `<span>${l.label}</span>`;
+      el.title = T(l.tip);
+      el.innerHTML = (l.icon || '') + `<span>${T(l.label)}</span>`;
       box.appendChild(el);
       this.lampEls[l.id] = el;
     }
@@ -302,7 +322,7 @@
     for (const a of ECU.ACTUATORS) {
       const el = document.createElement('div');
       el.className = 'act' + (a.turboOnly ? ' turbo-only' : '');
-      el.innerHTML = `<div class="an"><span>${a.name}</span><span class="dot"></span></div><div class="av">—</div><div class="abar"><i></i></div>`;
+      el.innerHTML = `<div class="an"><span>${ECU.info('actuators', a, 'name')}</span><span class="dot"></span></div><div class="av">—</div><div class="abar"><i></i></div>`;
       el.addEventListener('click', () => this.openActuator(a.id));
       box.appendChild(el);
       this.actEls[a.id] = { el, v: el.querySelector('.av'), bar: el.querySelector('.abar i') };
@@ -312,20 +332,20 @@
   function actState(S, id) {
     const on = S.ecuOn;
     switch (id) {
-      case 'inj': return { on: S.pw > 0, v: S.pw > 0 ? `${S.pw.toFixed(2)} ms · ${(S.injDuty * 100).toFixed(0)} % duty · ${S.fuelMg.toFixed(1)} mg${S.batch ? ' · BATCH' : ''}` : S.fuelCutAll && S.running ? 'fuel CUT' : 'off', f: S.injDuty, c: '#ffb020' };
-      case 'coil': return { on: on && S.sync > 0, v: on && S.sync > 0 ? `${S.spark.toFixed(1)}° BTDC · dwell ${S.dwell.toFixed(1)} ms${S.batch ? ' · WASTED' : ''}` : 'off', f: (S.spark + 10) / 55, c: '#ffe45c' };
-      case 'etc': return { on, v: `cmd ${S.throttleCmd.toFixed(1)} % → ${S.throttle.toFixed(1)} %${S.limp ? ' · LIMP' : ''}`, f: S.throttle / 100, c: '#2ee6c5' };
-      case 'pump': return { on: S.fuelPump, v: S.fuelPump ? (S.primeT > 0 && S.rpm < 50 ? 'ON · priming' : 'ON') : 'off', f: S.fuelPump ? 1 : 0, c: '#3ee07a' };
-      case 'fan': return { on: S.fan, v: S.fan ? 'ON' : 'off', f: S.fan ? 1 : 0, c: '#2ee6c5' };
-      case 'vvt': return { on: S.vvt > 0.5, v: `${S.vvt.toFixed(1)}° intake advance`, f: S.vvt / 35, c: '#b98cff' };
-      case 'wg': return { on: S.boostTargetKpa > 5, v: `duty ${((1 - S.wgCmd) * 100).toFixed(0)} % · flap ${(S.wgPos * 100).toFixed(0)} % open`, f: 1 - S.wgCmd, c: '#ff9f43' };
-      case 'bov': return { on: S.bovT > 0, v: S.bovT > 0 ? 'VENTING' : 'closed', f: S.bovT > 0 ? 1 : 0, c: '#cfe9ff' };
-      case 'o2h': return { on: on && S.rpm > 300, v: `${on && S.rpm > 300 ? 'ON' : 'off'} · element ${S.o2Temp.toFixed(0)} °C`, f: S.o2Temp / 750, c: '#ff6b8a' };
-      case 'alt': return { on: S.rpm > 550 && !S.faults.alt, v: S.faults.alt ? 'FAILED' : S.rpm > 550 ? `${S.vbat.toFixed(1)} V · ${S.elecW.toFixed(0)} W load` : 'not charging', f: S.elecW / 1000, c: '#62a8ff' };
-      case 'acc': return { on: S.ac && S.running, v: S.ac && S.running ? 'engaged' : S.ac ? 'waiting for engine' : 'off', f: S.ac && S.running ? 1 : 0, c: '#62a8ff' };
+      case 'inj': return { on: S.pw > 0, v: S.pw > 0 ? T('{pw} ms · {d} % duty · {mg} mg', { pw: S.pw.toFixed(2), d: (S.injDuty * 100).toFixed(0), mg: S.fuelMg.toFixed(1) }) + (S.batch ? ' · ' + T('BATCH') : '') : S.fuelCutAll && S.running ? T('fuel CUT') : T('off'), f: S.injDuty, c: '#ffb020' };
+      case 'coil': return { on: on && S.sync > 0, v: on && S.sync > 0 ? T('{a}° BTDC · dwell {d} ms', { a: S.spark.toFixed(1), d: S.dwell.toFixed(1) }) + (S.batch ? ' · ' + T('WASTED') : '') : T('off'), f: (S.spark + 10) / 55, c: '#ffe45c' };
+      case 'etc': return { on, v: T('cmd {c} % → {a} %', { c: S.throttleCmd.toFixed(1), a: S.throttle.toFixed(1) }) + (S.limp ? ' · ' + T('LIMP') : ''), f: S.throttle / 100, c: '#2ee6c5' };
+      case 'pump': return { on: S.fuelPump, v: S.fuelPump ? (S.primeT > 0 && S.rpm < 50 ? T('ON · priming') : T('ON')) : T('off'), f: S.fuelPump ? 1 : 0, c: '#3ee07a' };
+      case 'fan': return { on: S.fan, v: S.fan ? T('ON') : T('off'), f: S.fan ? 1 : 0, c: '#2ee6c5' };
+      case 'vvt': return { on: S.vvt > 0.5, v: T('{a}° intake advance', { a: S.vvt.toFixed(1) }), f: S.vvt / 35, c: '#b98cff' };
+      case 'wg': return { on: S.boostTargetKpa > 5, v: T('duty {d} % · flap {o} % open', { d: ((1 - S.wgCmd) * 100).toFixed(0), o: (S.wgPos * 100).toFixed(0) }), f: 1 - S.wgCmd, c: '#ff9f43' };
+      case 'bov': return { on: S.bovT > 0, v: S.bovT > 0 ? T('VENTING') : T('closed'), f: S.bovT > 0 ? 1 : 0, c: '#cfe9ff' };
+      case 'o2h': return { on: on && S.rpm > 300, v: T('{s} · element {t} °C', { s: on && S.rpm > 300 ? T('ON') : T('off'), t: S.o2Temp.toFixed(0) }), f: S.o2Temp / 750, c: '#ff6b8a' };
+      case 'alt': return { on: S.rpm > 550 && !S.faults.alt, v: S.faults.alt ? T('FAILED') : S.rpm > 550 ? T('{v} V · {w} W load', { v: S.vbat.toFixed(1), w: S.elecW.toFixed(0) }) : T('not charging'), f: S.elecW / 1000, c: '#62a8ff' };
+      case 'acc': return { on: S.ac && S.running, v: S.ac && S.running ? T('engaged') : S.ac ? T('waiting for engine') : T('off'), f: S.ac && S.running ? 1 : 0, c: '#62a8ff' };
       case 'mil': {
         const m = on && (Object.values(S.dtc).some((d) => d.mil) || S.rpm < 300);
-        return { on: m, v: S.misfireActive && !S.injCut[2] ? 'FLASHING' : m ? 'ON' : 'off', f: m ? 1 : 0, c: '#ffb020' };
+        return { on: m, v: S.misfireActive && !S.injCut[2] ? T('FLASHING') : m ? T('ON') : T('off'), f: m ? 1 : 0, c: '#ffb020' };
       }
     }
     return { on: false, v: '', f: 0 };
@@ -348,7 +368,7 @@
       if (r.status !== 'off') active++;
     }
     const total = ECU.SENSORS.filter((s) => !s.turboOnly || S.E.turbo).length;
-    $('#sensorCount').textContent = `${active}/${total} live`;
+    $('#sensorCount').textContent = T('{a}/{n} live', { a: active, n: total });
     this.readings = readings;
 
     // lamps
@@ -372,7 +392,7 @@
     document.querySelectorAll('.kpos').forEach((b) => b.classList.toggle('active', b.dataset.key === S.key));
     const keyAng = { OFF: -60, ACC: -20, ON: 20, START: 60 }[S.key];
     $('#keyRotor').style.transform = `rotate(${keyAng}deg)`;
-    $('#keyHint').textContent = !S.ecuOn ? (S.key === 'ACC' ? 'ACC — accessories only, ECU off.' : 'Key OFF — ECU asleep.') : S.cranking ? 'Cranking… starter engaged.' : S.running ? 'Engine running.' : S.primeT > 0 ? 'Bulb check + fuel pump prime…' : 'ECU on — ready to crank.';
+    $('#keyHint').textContent = !S.ecuOn ? (S.key === 'ACC' ? T('ACC — accessories only, ECU off.') : T('Key OFF — ECU asleep.')) : S.cranking ? T('Cranking… starter engaged.') : S.running ? T('Engine running.') : S.primeT > 0 ? T('Bulb check + fuel pump prime…') : T('ECU on — ready to crank.');
     $('#speedVal').textContent = `${(S.v * 3.6).toFixed(0)} km/h`;
     document.querySelectorAll('#gearSel button').forEach((b) => b.classList.toggle('active', +b.dataset.g === S.gear));
     $('#brakeBtn').classList.toggle('active', S.brake);
@@ -382,7 +402,7 @@
     // sync pill
     const sp = $('#syncPill');
     sp.className = 'sync-pill s' + S.sync;
-    sp.textContent = S.sync === 2 ? 'FULL SYNC · sequential' : S.sync === 1 ? 'CRANK SYNC · batch/wasted' : S.rpm > 30 && S.ecuOn ? 'SEARCHING FOR GAP…' : 'NO SYNC';
+    sp.textContent = S.sync === 2 ? T('FULL SYNC · sequential') : S.sync === 1 ? T('CRANK SYNC · batch/wasted') : S.rpm > 30 && S.ecuOn ? T('SEARCHING FOR GAP…') : T('NO SYNC');
 
     // log
     this.renderLog(S);
@@ -400,12 +420,12 @@
 
   UI.prototype.renderLog = function (S) {
     const list = $('#logList');
-    const fresh = S.log.filter((l) => l.id > this.lastLogId);
+    const fresh = S.log.filter((l) => l.id > this.lastLogId).slice(-80);
     if (fresh.length) {
       for (const l of fresh) {
         const el = document.createElement('div');
         el.className = 'lg ' + l.kind;
-        el.innerHTML = `<span class="lt">${l.t.toFixed(1)}s</span><span>${l.msg}</span>`;
+        el.innerHTML = `<span class="lt">${l.t.toFixed(1)}s</span><span>${T(l.msg, l.vars)}</span>`;
         list.prepend(el);
       }
       this.lastLogId = fresh[fresh.length - 1].id;
@@ -415,15 +435,15 @@
     const sig = codes.map((d) => d.code).join(',');
     if (sig !== this.dtcSig) {
       this.dtcSig = sig;
-      $('#dtcList').innerHTML = codes.map((d) => `<div class="dtc"><b>${d.code}</b><span>${d.text}</span></div>`).join('');
-      $('#dtcCount').innerHTML = codes.length ? `<span style="color:var(--bad)">${codes.length} DTC${codes.length > 1 ? 's' : ''} stored</span>` : '<span style="color:var(--ok)">no DTCs</span>';
+      $('#dtcList').innerHTML = codes.map((d) => `<div class="dtc"><b>${d.code}</b><span>${T(d.text)}</span></div>`).join('');
+      $('#dtcCount').innerHTML = codes.length ? `<span style="color:var(--bad)">${T('{n} DTC(s) stored', { n: codes.length })}</span>` : `<span style="color:var(--ok)">${T('no DTCs')}</span>`;
     }
   };
 
   // ---------- ECU brain ----------
   UI.prototype.renderBrain = function (S) {
     const E = S.E, pill = $('#modePill');
-    let mode = 'OFF', cls = '';
+    let mode, cls = '';
     if (!S.ecuOn) mode = 'ECU OFF';
     else if (S.cranking && !S.running) { mode = 'CRANKING'; cls = 'warn'; }
     else if (!S.running) mode = 'STANDBY';
@@ -432,59 +452,64 @@
     else if (S.limp) { mode = 'LIMP HOME'; cls = 'bad'; }
     else if (S.dfco) { mode = 'DECEL FUEL CUT'; cls = 'run'; }
     else if (S.idleActive) { mode = S.ect < 60 ? 'COLD IDLE' : 'IDLE'; cls = 'run'; }
-    else if (S.lambdaTarget < 0.985 && S.ltReason.includes('power')) { mode = E.turbo && S.boostP - S.baro > 20 ? 'FULL BOOST' : 'POWER (WOT)'; cls = 'warn'; }
+    else if (S.lambdaTarget < 0.985 && S.ltPower) { mode = E.turbo && S.boostP - S.baro > 20 ? 'FULL BOOST' : 'POWER (WOT)'; cls = 'warn'; }
     else { mode = S.pedal > 40 ? 'ACCELERATING' : 'PART LOAD'; cls = 'run'; }
-    pill.textContent = mode;
+    pill.textContent = T(mode);
     pill.className = 'mode-pill ' + cls;
 
-    const step = (title, status, body, calc, col) => `<div class="bstep" style="--c:${col}"><div class="bt"><span>${title}</span><span class="st">${status || ''}</span></div>${body ? `<div class="bb">${body}</div>` : ''}${calc ? `<div class="calc">${calc}</div>` : ''}</div>`;
+    const step = (title, status, body, calc, col) => `<div class="bstep" style="--c:${col}"><div class="bt"><span>${T(title)}</span><span class="st">${status || ''}</span></div>${body ? `<div class="bb">${body}</div>` : ''}${calc ? `<div class="calc">${calc}</div>` : ''}</div>`;
     const h = [];
     if (!S.ecuOn) {
-      h.push(step('Standby', '', 'The ECU is unpowered. Turn the key to <b>ON</b>: it boots, runs a self-test, lights every lamp (bulb check) and primes the fuel pump.', '', 'var(--dim)'));
+      h.push(step('Standby', '', T('The ECU is unpowered. Turn the key to <b>ON</b>: it boots, runs a self-test, lights every lamp (bulb check) and primes the fuel pump.'), '', 'var(--dim)'));
       $('#brain').innerHTML = h.join('');
       return;
     }
     const rpmS = S.sens.rpm || 0;
-    h.push(step('1 · Where is the crank?', S.sync === 2 ? 'FULL SYNC' : S.sync === 1 ? 'CRANK ONLY' : 'NO SYNC',
-      S.sync === 2 ? 'CKP gap + CMP pulse → exact position in the 720° cycle. Sequential injection & individual coils.' : S.sync === 1 ? (S.faults.cmp ? 'Cam signal missing → batch-fire and wasted spark fallback.' : 'Gap found, waiting for the cam pulse…') : rpmS > 30 ? 'Counting teeth, looking for the missing-tooth gap…' : 'No crank rotation.',
-      `RPM from tooth period: <b>${rpmS.toFixed(0)} rpm</b>`, S.sync === 2 ? 'var(--ok)' : S.sync === 1 ? 'var(--warn)' : 'var(--dim)'));
+    h.push(step('1 · Where is the crank?', S.sync === 2 ? T('FULL SYNC') : S.sync === 1 ? T('CRANK ONLY') : T('NO SYNC'),
+      S.sync === 2 ? T('CKP gap + CMP pulse → exact position in the 720° cycle. Sequential injection & individual coils.') : S.sync === 1 ? (S.faults.cmp ? T('Cam signal missing → batch-fire and wasted spark fallback.') : T('Gap found, waiting for the cam pulse…')) : rpmS > 30 ? T('Counting teeth, looking for the missing-tooth gap…') : T('No crank rotation.'),
+      T('RPM from tooth period: <b>{r} rpm</b>', { r: rpmS.toFixed(0) }), S.sync === 2 ? 'var(--ok)' : S.sync === 1 ? 'var(--warn)' : 'var(--dim)'));
 
-    const rpmE = Math.max(rpmS, 1);
     let loadCalc;
-    if (S.loadSrc === 'MAF') loadCalc = `MAF <b>${S.sens.maf.toFixed(1)} g/s</b> ÷ (${rpmS.toFixed(0)} rpm ÷ 30) = <b>${S.airCylMeas.toFixed(3)} g/cyl</b>`;
-    else if (S.loadSrc.startsWith('MAP')) loadCalc = `VE × MAP <b>${S.sens.map.toFixed(0)} kPa</b> × V<sub>cyl</sub> ÷ (R·T<sub>IAT</sub>) = <b>${S.airCylMeas.toFixed(3)} g/cyl</b>`;
-    else loadCalc = `from throttle angle only (${S.throttle.toFixed(0)} %) = <b>${S.airCylMeas.toFixed(3)} g/cyl</b>`;
-    h.push(step('2 · How much air per cylinder?', `${S.loadSrc} · load ${S.loadPct.toFixed(0)} %`, '', loadCalc, 'var(--air)'));
+    const ac = S.airCylMeas.toFixed(3);
+    if (S.loadSrc === 'MAF') loadCalc = T('MAF <b>{m} g/s</b> ÷ ({r} rpm ÷ 30) = <b>{a} g/cyl</b>', { m: S.sens.maf.toFixed(1), r: rpmS.toFixed(0), a: ac });
+    else if (S.loadSrc.startsWith('MAP')) loadCalc = T('VE × MAP <b>{p} kPa</b> × V<sub>cyl</sub> ÷ (R·T<sub>IAT</sub>) = <b>{a} g/cyl</b>', { p: S.sens.map.toFixed(0), a: ac });
+    else loadCalc = T('from throttle angle only ({t} %) = <b>{a} g/cyl</b>', { t: S.throttle.toFixed(0), a: ac });
+    h.push(step('2 · How much air per cylinder?', `${T(S.loadSrc)} · ${T('load')} ${S.loadPct.toFixed(0)} %`, '', loadCalc, 'var(--air)'));
 
-    h.push(step('3 · What mixture do we want?', `λ ${S.lambdaTarget.toFixed(2)} · AFR ${(14.7 * S.lambdaTarget).toFixed(1)}:1`, S.ltReason.charAt(0).toUpperCase() + S.ltReason.slice(1) + '.', '', S.lambdaTarget < 0.985 ? 'var(--fuel)' : 'var(--ok)'));
+    const why = ECU.tr(S.ltReason);
+    h.push(step('3 · What mixture do we want?', `λ ${S.lambdaTarget.toFixed(2)} · AFR ${(14.7 * S.lambdaTarget).toFixed(1)}:1`, why.charAt(0).toUpperCase() + why.slice(1) + '.', '', S.lambdaTarget < 0.985 ? 'var(--fuel)' : 'var(--ok)'));
 
     const trim = 1 + S.stft + S.ltft;
     if (S.fuelCutAll && S.running) {
-      h.push(step('4 · Fuel', 'CUT', S.dfco ? 'Pedal released at speed: no fuel needed, the car\'s momentum turns the engine. Saves fuel, adds engine braking.' : S.revCut ? `Above ${E.redline} rpm: fuel cut to protect the engine.` : S.overboostCut ? 'Overboost: fuel cut until boost falls.' : 'Fuel cut.', '', 'var(--warn)'));
+      h.push(step('4 · Fuel', T('CUT'), S.dfco ? T("Pedal released at speed: no fuel needed, the car's momentum turns the engine. Saves fuel, adds engine braking.") : S.revCut ? T('Above {r} rpm: fuel cut to protect the engine.', { r: E.redline }) : S.overboostCut ? T('Overboost: fuel cut until boost falls.') : T('Fuel cut.'), '', 'var(--warn)'));
     } else if (S.pw > 0) {
-      h.push(step('4 · Fuel mass', `${S.fuelMg.toFixed(1)} mg`, '', `${S.airCylMeas.toFixed(3)} g ÷ (14.7 × ${S.lambdaTarget.toFixed(2)}) = ${S.baseFuelMg.toFixed(1)} mg × trims <b>${trim.toFixed(3)}</b>${S.ae > 0.005 ? ` × accel ${(1 + S.ae).toFixed(2)}` : ''} = <b>${S.fuelMg.toFixed(1)} mg</b>`, 'var(--fuel)'));
-      h.push(step('5 · Injector pulse', `${S.pw.toFixed(2)} ms · ${(S.injDuty * 100).toFixed(0)} %`, '', `${S.batch ? '½ × ' : ''}${S.fuelMg.toFixed(1)} mg ÷ ${E.injFlow} mg/ms + <b>${S.deadtime.toFixed(2)} ms</b> dead-time @ ${S.vbat.toFixed(1)} V = <b>${S.pw.toFixed(2)} ms</b> · ends ${S.eoi}° after TDC (before intake valve opens)`, 'var(--fuel)'));
+      h.push(step('4 · Fuel mass', `${S.fuelMg.toFixed(1)} mg`, '', `${ac} g ÷ (14.7 × ${S.lambdaTarget.toFixed(2)}) = ${S.baseFuelMg.toFixed(1)} mg × ${T('trims')} <b>${trim.toFixed(3)}</b>${S.ae > 0.005 ? ` × ${T('accel')} ${(1 + S.ae).toFixed(2)}` : ''} = <b>${S.fuelMg.toFixed(1)} mg</b>`, 'var(--fuel)'));
+      h.push(step('5 · Injector pulse', `${S.pw.toFixed(2)} ms · ${(S.injDuty * 100).toFixed(0)} %`, '', T('{half}{mg} mg ÷ {flow} mg/ms + <b>{dt} ms</b> dead-time @ {v} V = <b>{pw} ms</b> · ends {eoi}° after TDC (before intake valve opens)', { half: S.batch ? '½ × ' : '', mg: S.fuelMg.toFixed(1), flow: E.injFlow, dt: S.deadtime.toFixed(2), v: S.vbat.toFixed(1), pw: S.pw.toFixed(2), eoi: S.eoi }), 'var(--fuel)'));
     }
 
     if (S.sync > 0) {
       const kr = Math.max(...S.knockRetard);
-      h.push(step('6 · Spark timing', `${S.spark.toFixed(1)}° BTDC`, '',
-        `base ${S.sparkBase.toFixed(1)}° (MBT ${S.mbtNow.toFixed(1)}°, knock limit ${S.klNow.toFixed(1)}°)${Math.abs(S.sparkIdle) > 0.2 ? ` ${S.sparkIdle > 0 ? '+' : '−'} idle ${Math.abs(S.sparkIdle).toFixed(1)}°` : ''}${S.catHeat < -0.2 ? ` − cat heating ${(-S.catHeat).toFixed(1)}°` : ''}${kr > 0.2 ? ` − knock <b style="color:var(--bad)">${kr.toFixed(1)}°</b>` : ''} · dwell ${S.dwell.toFixed(1)} ms`, 'var(--spark)'));
+      const parts = [T('base {b}° (MBT {m}°, knock limit {k}°)', { b: S.sparkBase.toFixed(1), m: S.mbtNow.toFixed(1), k: S.klNow.toFixed(1) })];
+      if (Math.abs(S.sparkIdle) > 0.2) parts.push(`${S.sparkIdle > 0 ? '+' : '−'} ${T('idle')} ${Math.abs(S.sparkIdle).toFixed(1)}°`);
+      if (S.catHeat < -0.2) parts.push(`− ${T('cat heating')} ${(-S.catHeat).toFixed(1)}°`);
+      if (kr > 0.2) parts.push(`− ${T('knock')} <b style="color:var(--bad)">${kr.toFixed(1)}°</b>`);
+      h.push(step('6 · Spark timing', T('{a}° BTDC', { a: S.spark.toFixed(1) }), '', `${parts.join(' ')} · dwell ${S.dwell.toFixed(1)} ms`, 'var(--spark)'));
     }
 
-    h.push(step('7 · Fuel feedback', S.closedLoop ? 'CLOSED LOOP' : 'OPEN LOOP',
-      S.closedLoop ? `O2 sensor switching ${S.o2Freq.toFixed(1)} Hz — reads ${S.o2v > 0.45 ? '<b style="color:var(--fuel)">RICH</b> → trimming fuel down' : '<b style="color:var(--air)">LEAN</b> → trimming fuel up'}.` : `Why open loop: ${S.olReason}.`,
+    h.push(step('7 · Fuel feedback', S.closedLoop ? T('CLOSED LOOP') : T('OPEN LOOP'),
+      S.closedLoop ? T('O2 sensor switching {f} Hz — reads {state}.', { f: S.o2Freq.toFixed(1), state: S.o2v > 0.45 ? T('<b style="color:var(--fuel)">RICH</b> → trimming fuel down') : T('<b style="color:var(--air)">LEAN</b> → trimming fuel up') }) : T('Why open loop: {r}.', { r: S.olReason }),
       `STFT ${(S.stft * 100 >= 0 ? '+' : '')}${(S.stft * 100).toFixed(1)} % · LTFT ${(S.ltft * 100 >= 0 ? '+' : '')}${(S.ltft * 100).toFixed(1)} %`, S.closedLoop ? 'var(--ok)' : 'var(--dim)'));
 
-    h.push(step('8 · Throttle & idle', S.idleActive ? `idle target ${S.idleTarget.toFixed(0)} rpm` : `pedal ${S.pedal.toFixed(0)} %`,
-      S.idleActive ? `Driver off the pedal: ECU holds idle by moving the throttle and trimming spark (error ${(S.idleTarget - rpmS) >= 0 ? '+' : ''}${(S.idleTarget - rpmS).toFixed(0)} rpm).` : S.limp ? 'Throttle sensors disagree: motor off, spring holds limp-home position.' : 'Pedal = torque request → throttle angle.',
-      `throttle cmd ${S.throttleCmd.toFixed(1)} % → actual ${S.throttle.toFixed(1)} %`, 'var(--accent)'));
+    const err = S.idleTarget - rpmS;
+    h.push(step('8 · Throttle & idle', S.idleActive ? T('idle target {r} rpm', { r: S.idleTarget.toFixed(0) }) : T('pedal {p} %', { p: S.pedal.toFixed(0) }),
+      S.idleActive ? T('Driver off the pedal: ECU holds idle by moving the throttle and trimming spark (error {e} rpm).', { e: (err >= 0 ? '+' : '') + err.toFixed(0) }) : S.limp ? T('Throttle sensors disagree: motor off, spring holds limp-home position.') : T('Pedal = torque request → throttle angle.'),
+      T('throttle cmd {c} % → actual {a} %', { c: S.throttleCmd.toFixed(1), a: S.throttle.toFixed(1) }), 'var(--accent)'));
 
     if (E.turbo) {
       const b = (S.boostP - S.baro) / 100;
       h.push(step('9 · Boost control', `${b >= 0 ? '+' : ''}${b.toFixed(2)} / ${(S.boostTargetKpa / 100).toFixed(2)} bar`,
-        S.boostTargetKpa < 5 ? 'No boost requested → wastegate open, turbo idling.' : b < S.boostTargetKpa / 100 * 0.85 ? 'Turbo spooling up (lag) → wastegate held shut so all exhaust drives the turbine.' : 'On target → wastegate modulated to bleed off excess exhaust energy.',
-        `WG flap ${(S.wgPos * 100).toFixed(0)} % open · turbo ${S.turbo.toFixed(0)} krpm · charge ${S.chargeT.toFixed(0)} °C (compressor out ${S.compOutT.toFixed(0)} °C)`, 'var(--hot)'));
+        S.boostTargetKpa < 5 ? T('No boost requested → wastegate open, turbo idling.') : b < (S.boostTargetKpa / 100) * 0.85 ? T('Turbo spooling up (lag) → wastegate held shut so all exhaust drives the turbine.') : T('On target → wastegate modulated to bleed off excess exhaust energy.'),
+        T('WG flap {w} % open · turbo {n} krpm · charge {c} °C (compressor out {o} °C)', { w: (S.wgPos * 100).toFixed(0), n: S.turbo.toFixed(0), c: S.chargeT.toFixed(0), o: S.compOutT.toFixed(0) }), 'var(--hot)'));
     }
     $('#brain').innerHTML = h.join('');
   };
@@ -497,15 +522,16 @@
     this.hist = [];
     for (const k in this.sRows) this.sRows[k].row.classList.toggle('sel', k === id);
     this.app.diagram.select(id);
+    const I = (f) => ECU.info('sensors', s, f);
     $('#drawerBody').innerHTML = `
-      <h2>${s.name}</h2><div class="tech">${s.abbr} · ${s.tech}</div>
-      <div class="live"><div><span class="lbl">Reading</span><span class="mono" id="dwVal">—</span></div><div><span class="lbl">Electrical signal</span><span class="mono" id="dwSig" style="font-size:13px">—</span></div></div>
+      <h2>${I('name')}</h2><div class="tech">${s.abbr} · ${I('tech')}</div>
+      <div class="live"><div><span class="lbl">${T('Reading')}</span><span class="mono" id="dwVal">—</span></div><div><span class="lbl">${T('Electrical signal')}</span><span class="mono" id="dwSig" style="font-size:13px">—</span></div></div>
       <canvas id="dwCanvas" height="110"></canvas>
-      <h4>What it measures</h4><p>${s.what}</p>
-      <h4>How it works</h4><p>${s.how}</p>
-      <h4>How the ECU uses it</h4><p>${s.ecu}</p>
-      <h4>Typical values</h4><p>${s.typical}</p>
-      <h4>When it fails</h4><p class="fail">${s.fail}</p>`;
+      <h4>${T('What it measures')}</h4><p>${I('what')}</p>
+      <h4>${T('How it works')}</h4><p>${I('how')}</p>
+      <h4>${T('How the ECU uses it')}</h4><p>${I('ecu')}</p>
+      <h4>${T('Typical values')}</h4><p>${I('typical')}</p>
+      <h4>${T('When it fails')}</h4><p class="fail">${I('fail')}</p>`;
     this.openDrawer();
   };
   UI.prototype.openActuator = function (id) {
@@ -513,9 +539,9 @@
     if (!a) return;
     this.selected = { type: 'a', id, def: a };
     this.hist = [];
-    $('#drawerBody').innerHTML = `<h2>${a.name}</h2><div class="tech">ECU output</div>
-      <div class="live"><div style="grid-column:span 2"><span class="lbl">Now</span><span class="mono" id="dwVal" style="font-size:14px">—</span></div></div>
-      <h4>What it does</h4><p>${a.desc}</p>`;
+    $('#drawerBody').innerHTML = `<h2>${ECU.info('actuators', a, 'name')}</h2><div class="tech">${T('ECU output')}</div>
+      <div class="live"><div style="grid-column:span 2"><span class="lbl">${T('Now')}</span><span class="mono" id="dwVal" style="font-size:14px">—</span></div></div>
+      <h4>${T('What it does')}</h4><p>${ECU.info('actuators', a, 'desc')}</p>`;
     this.openDrawer();
   };
   UI.prototype.openDrawer = function () {
@@ -529,7 +555,7 @@
     for (const k in this.sRows) this.sRows[k].row.classList.remove('sel');
     this.app.diagram.select(null);
   };
-  UI.prototype.updateDrawer = function (S, dt) {
+  UI.prototype.updateDrawer = function (S) {
     const sel = this.selected;
     if (sel.type === 'a') {
       const el = $('#dwVal');
@@ -558,7 +584,7 @@
     ctx.stroke();
     ctx.fillStyle = '#4d5d72';
     ctx.font = '600 9px Inter';
-    ctx.fillText('last ~5 s (normalised)', 8, 12);
+    ctx.fillText(T('last ~5 s (normalised)'), 8, 12);
   };
 
   // ---------- controls ----------
@@ -566,6 +592,7 @@
     const app = this.app;
     const S = () => app.S;
 
+    document.querySelectorAll('#langSel button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== ECU.lang) ECU.setLang(b.dataset.lang); }));
     document.querySelectorAll('#engineSel button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#engineSel button').forEach((x) => x.classList.toggle('active', x === b));
       app.setEngine(b.dataset.engine);
@@ -612,7 +639,7 @@
     document.querySelectorAll('#octaneSel button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#octaneSel button').forEach((x) => x.classList.toggle('active', x === b));
       S().octane = +b.dataset.o;
-      ECU.log(S(), `Tank filled with ${b.dataset.o} RON fuel.${+b.dataset.o < 95 ? ' Lower knock resistance — expect knock control to retard spark under load.' : ''}`, 'info');
+      ECU.log(S(), +b.dataset.o < 95 ? 'Tank filled with {o} RON fuel. Lower knock resistance — expect knock control to retard spark under load.' : 'Tank filled with {o} RON fuel.', 'info', { o: b.dataset.o });
     }));
     document.querySelectorAll('#ckpSel button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#ckpSel button').forEach((x) => x.classList.toggle('active', x === b));
@@ -621,7 +648,7 @@
     const tog = (sel, key) => $(sel).addEventListener('click', (e) => { S()[key] = !S()[key]; e.currentTarget.classList.toggle('on', S()[key]); });
     tog('#acBtn', 'ac');
     tog('#lightsBtn', 'lights');
-    $('#coldSoak').addEventListener('click', () => { const s = S(); s.ect = s.oilT = s.iat = s.egt = s.chargeT = s.ambient; s.o2Temp = s.ambient; ECU.log(s, `Cold soak: engine at ambient ${s.ambient} °C.`, 'info'); });
+    $('#coldSoak').addEventListener('click', () => { const s = S(); s.ect = s.oilT = s.iat = s.egt = s.chargeT = s.ambient; s.o2Temp = s.ambient; ECU.log(s, 'Cold soak: engine at ambient {t} °C.', 'info', { t: s.ambient }); });
     $('#hotSoak').addEventListener('click', () => { const s = S(); s.ect = 88; s.oilT = 92; ECU.log(s, 'Engine warmed to 88 °C.', 'info'); });
     $('#clearDtc').addEventListener('click', () => ECU.clearDTC(S()));
 
@@ -651,9 +678,9 @@
       app.scope.hoverX = p.x;
       if (p.x > app.scope.x0) {
         const a = app.scope.angleAt(p.x);
-        $('#scopeRead').textContent = `cursor ${a.toFixed(0)}° · ${describeAngle(a)}`;
+        $('#scopeRead').textContent = T('cursor {a}° · {d}', { a: a.toFixed(0), d: describeAngle(a) });
         if (drag && app.paused) app.theta = a;
-      } else $('#scopeRead').textContent = app.scope.hit(p.x, p.y) ? 'click for details' : '';
+      } else $('#scopeRead').textContent = app.scope.hit(p.x, p.y) ? T('click for details') : '';
     });
     sc.addEventListener('pointerleave', () => { app.scope.hoverX = null; $('#scopeRead').textContent = ''; drag = false; });
     sc.addEventListener('pointerdown', (e) => {
@@ -668,11 +695,10 @@
   function describeAngle(a) {
     const out = [];
     for (let c = 0; c < 4; c++) {
-      const L = ECU.localAngle(a, c);
-      if (L < 30) out.push(`cyl ${c + 1} power start`);
+      if (ECU.localAngle(a, c) < 30) out.push(T('cyl {c} power start', { c: c + 1 }));
     }
-    const t = ECU.ckpTooth(a);
-    out.push(t.missing ? 'CKP gap' : `CKP tooth ${t.idx + 1}`);
+    const tooth = ECU.ckpTooth(a);
+    out.push(tooth.missing ? T('CKP gap') : T('CKP tooth {n}', { n: tooth.idx + 1 }));
     return out.join(' · ');
   }
 

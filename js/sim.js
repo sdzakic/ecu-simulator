@@ -94,7 +94,7 @@
       sync: 0, syncAngle: 0,
       sens: {},
       fuelMg: 0, pw: 0, injDuty: 0, deadtime: 0.7, eoi: 340, batch: false,
-      lambdaTarget: 1, ltReason: 'stoichiometric', stft: 0, ltft: 0, closedLoop: false, olReason: 'engine off',
+      lambdaTarget: 1, ltReason: { k: 'stoichiometric (catalyst window)' }, ltPower: false, stft: 0, ltft: 0, closedLoop: false, olReason: { k: 'engine not running' },
       o2Rich: false, o2Switches: [], o2Freq: 0, o2DeadT: 0, o2Dead: false,
       spark: 0, sparkBase: 0, sparkIdle: 0, sparkCyl: [0, 0, 0, 0], catHeat: 0, mbtNow: 0, klNow: 0,
       knockRetard: [0, 0, 0, 0], knockFlash: [0, 0, 0, 0], knockTrue: [0, 0, 0, 0], knockCount: 0, lastKnockT: -99, dwell: 3,
@@ -120,18 +120,20 @@
   }
   ECU.createState = createState;
 
-  function log(S, msg, kind) {
-    S.log.push({ t: S.t, msg, kind: kind || 'info', id: ++S.logSeq });
+  // msg is an English i18n key; vars fill {placeholders} (values may be {k, v} keys themselves).
+  // Entries are translated when rendered, so the log follows language switches.
+  function log(S, msg, kind, vars) {
+    S.log.push({ t: S.t, msg, vars, kind: kind || 'info', id: ++S.logSeq });
     if (S.log.length > 250) S.log.splice(0, S.log.length - 250);
   }
   ECU.log = log;
 
   // transition helper: logs once when a boolean condition changes
-  function edge(S, key, value, onMsg, offMsg, kind, cooldown) {
+  function edge(S, key, value, onMsg, offMsg, kind, cooldown, vars) {
     const prev = !!S.flags[key];
     if (value && !prev && onMsg) {
       const last = S.flags[key + '_t'] || -99;
-      if (!cooldown || S.t - last > cooldown) log(S, onMsg, kind);
+      if (!cooldown || S.t - last > cooldown) log(S, onMsg, kind, vars);
       S.flags[key + '_t'] = S.t;
     }
     if (!value && prev && offMsg) log(S, offMsg, kind === 'warn' ? 'ok' : 'info');
@@ -141,7 +143,7 @@
   function setDTC(S, code, mil) {
     if (S.dtc[code]) return;
     S.dtc[code] = { code, text: ECU.DTC_TEXT[code] || '', t: S.t, mil: mil !== false };
-    log(S, `DTC ${code} stored — ${ECU.DTC_TEXT[code] || ''}${mil !== false ? ' · MIL on' : ''}`, 'fault');
+    log(S, mil !== false ? 'DTC {code} stored — {text} · MIL on' : 'DTC {code} stored — {text}', 'fault', { code, text: { k: ECU.DTC_TEXT[code] || '' } });
   }
   ECU.clearDTC = function (S) {
     S.dtc = {};
@@ -263,10 +265,10 @@
             if (!F.knocksensor) {
               S.knockRetard[c] = Math.min(12, S.knockRetard[c] + 2);
               S.knockFlash[c] = 1;
-              if (S.t - S.lastKnockT > 2.5) log(S, `Knock on cylinder ${c + 1} (in its knock window) → spark retarded 2° on that cylinder only.`, 'warn');
+              if (S.t - S.lastKnockT > 2.5) log(S, 'Knock on cylinder {c} (in its knock window) → spark retarded 2° on that cylinder only.', 'warn', { c: c + 1 });
               S.lastKnockT = S.t;
             } else if (S.t - S.lastKnockT > 3) {
-              log(S, `Cylinder ${c + 1} is knocking — but the knock sensor is dead, the ECU can't hear it!`, 'fault');
+              log(S, "Cylinder {c} is knocking — but the knock sensor is dead, the ECU can't hear it!", 'fault', { c: c + 1 });
               S.lastKnockT = S.t;
             }
           }
@@ -464,7 +466,7 @@
     sens.vss = S.v * 3.6;
 
     if (!S.ecuOn) {
-      S.fuelMg = 0; S.pw = 0; S.injDuty = 0; S.fuelPump = false; S.closedLoop = false; S.olReason = 'ECU off';
+      S.fuelMg = 0; S.pw = 0; S.injDuty = 0; S.fuelPump = false; S.closedLoop = false; S.olReason = { k: 'ECU off' };
       S.fan = false; S.sparkCyl = [0, 0, 0, 0]; S.spark = 0; S.running = false; S.dfco = false; S.revCut = false;
       S.fuelCutAll = true;
       S.throttleCmd = 7;
@@ -511,7 +513,7 @@
     if (S.running && !wasRunning) {
       S.runT = 0; S.startEct = ectU;
       S.afterStart = ectU < 60 ? 0.3 : 0.12;
-      log(S, `Engine running. After-start enrichment +${Math.round(S.afterStart * 100)} %, idle target ${Math.round(S.idleTarget)} rpm.`, 'ok');
+      log(S, 'Engine running. After-start enrichment +{e} %, idle target {idle} rpm.', 'ok', { e: Math.round(S.afterStart * 100), idle: Math.round(S.idleTarget) });
     }
     if (!S.running && wasRunning && !S.cranking) log(S, 'Engine stalled / stopped.', 'warn');
     if (S.running) S.runT += dt;
@@ -533,7 +535,7 @@
     if (F.ect || S.ac) S.fan = true;
     else if (ectU > 98) S.fan = true;
     else if (ectU < 93) S.fan = false;
-    if (S.fan && !fanWas) log(S, `Radiator fan ON (${F.ect ? 'ECT fault – failsafe' : S.ac ? 'A/C request' : 'coolant ' + ectU.toFixed(0) + ' °C'}).`, 'info');
+    if (S.fan && !fanWas) log(S, F.ect ? 'Radiator fan ON (ECT fault – failsafe).' : S.ac ? 'Radiator fan ON (A/C request).' : 'Radiator fan ON (coolant {t} °C).', 'info', { t: ectU.toFixed(0) });
     if (!S.fan && fanWas) log(S, 'Radiator fan OFF.', 'info');
 
     // ---------- Idle speed control ----------
@@ -581,16 +583,17 @@
     S.loadPct = loadN * 100;
 
     // ---------- Target lambda ----------
-    let lt = 1, reason = 'stoichiometric (catalyst window)';
+    // reasons are i18n keys ({k, v}); `soft` = the reason may still be overridden by warm-up text
+    let lt = 1, reason = { k: 'stoichiometric (catalyst window)' }, soft = true, power = false;
     if (E.turbo) {
-      if (loadN > 0.95) { lt = lerp(0.98, 0.78, clamp((loadN - 0.95) / 0.8, 0, 1)); reason = 'power enrichment under boost'; }
-    } else if (S.throttle > 70 || loadN > 0.88) { lt = 0.87; reason = 'power enrichment (WOT)'; }
+      if (loadN > 0.95) { lt = lerp(0.98, 0.78, clamp((loadN - 0.95) / 0.8, 0, 1)); reason = { k: 'power enrichment under boost' }; soft = false; power = true; }
+    } else if (S.throttle > 70 || loadN > 0.88) { lt = 0.87; reason = { k: 'power enrichment (WOT)' }; soft = false; power = true; }
     const egtLim = E.turbo ? 950 : 920;
-    if (S.egt > egtLim) { lt = Math.min(lt, 0.8); reason = `component protection (EGT > ${egtLim} °C)`; }
+    if (S.egt > egtLim) { lt = Math.min(lt, 0.8); reason = { k: 'component protection (EGT > {t} °C)', v: { t: egtLim } }; soft = false; }
     const warm = clamp((50 - ectU) / 70, 0, 1) * 0.22;
-    if (warm > 0.005) { lt /= 1 + warm; if (reason.startsWith('stoich')) reason = 'cold-engine enrichment'; }
-    if (S.afterStart > 0.01) { lt /= 1 + S.afterStart; if (reason.startsWith('stoich') || reason.startsWith('cold')) reason = 'after-start enrichment'; }
-    S.lambdaTarget = lt; S.ltReason = reason;
+    if (warm > 0.005) { lt /= 1 + warm; if (soft) reason = { k: 'cold-engine enrichment' }; }
+    if (S.afterStart > 0.01) { lt /= 1 + S.afterStart; if (soft) reason = { k: 'after-start enrichment' }; }
+    S.lambdaTarget = lt; S.ltReason = reason; S.ltPower = power;
 
     // ---------- Fuel cut logic ----------
     if (S.pedal < 1 && sens.rpm > 1700 && ectU > 45 && S.running) S.dfcoT += dt; else S.dfcoT = 0;
@@ -600,7 +603,7 @@
 
     if (sens.rpm > E.redline) S.revCut = true;
     else if (sens.rpm < E.redline - 200) S.revCut = false;
-    edge(S, 'rev', S.revCut, `Rev limiter: ${E.redline} rpm reached → fuel cut until ${E.redline - 200} rpm.`, null, 'warn', 4);
+    edge(S, 'rev', S.revCut, 'Rev limiter: {r} rpm reached → fuel cut until {r2} rpm.', null, 'warn', 4, { r: E.redline, r2: E.redline - 200 });
 
     // ---------- Boost control ----------
     if (E.turbo) {
@@ -622,7 +625,7 @@
       if (boostRel > S.boostTarget * 100 + 35) S.overboostT += dt; else S.overboostT = 0;
       if (!S.overboostCut && S.overboostT > 0.35) {
         S.overboostCut = true; setDTC(S, 'P0234');
-        log(S, `OVERBOOST ${(boostRel / 100).toFixed(2)} bar → fuel cut & throttle closed to protect the engine.`, 'fault');
+        log(S, 'OVERBOOST {b} bar → fuel cut & throttle closed to protect the engine.', 'fault', { b: (boostRel / 100).toFixed(2) });
       }
       if (S.overboostCut && boostRel < 15) { S.overboostCut = false; log(S, 'Boost back to safe level → fuel restored.', 'info'); }
       if (err > 35 && sens.rpm > 3200 && S.pedal > 70) S.underboostT += dt; else S.underboostT = 0;
@@ -679,21 +682,21 @@
     else if (!F.misfire3) S.flags.misfire = false;
 
     // ---------- Closed loop fuel control ----------
-    let ol = '';
-    if (!S.running) ol = 'engine not running';
-    else if (ectU < 35) ol = `coolant ${ectU.toFixed(0)} °C < 35 °C`;
-    else if (S.o2Temp < 350) ol = `O2 sensor heating (${S.o2Temp.toFixed(0)} °C)`;
-    else if (S.dfco) ol = 'decel fuel cut';
-    else if (S.revCut || S.overboostCut) ol = 'fuel cut';
+    let ol = null;
+    if (!S.running) ol = { k: 'engine not running' };
+    else if (ectU < 35) ol = { k: 'coolant {t} °C < 35 °C', v: { t: ectU.toFixed(0) } };
+    else if (S.o2Temp < 350) ol = { k: 'O2 sensor heating ({t} °C)', v: { t: S.o2Temp.toFixed(0) } };
+    else if (S.dfco) ol = { k: 'decel fuel cut' };
+    else if (S.revCut || S.overboostCut) ol = { k: 'fuel cut' };
     else if (lt < 0.985) ol = reason;
-    else if (S.o2Dead) ol = 'O2 sensor fault (P0134)';
-    else if (S.injCut.some(Boolean)) ol = 'cylinder shut-off (trims frozen)';
-    else if (S.runT < 3) ol = 'post-start stabilisation';
+    else if (S.o2Dead) ol = { k: 'O2 sensor fault (P0134)' };
+    else if (S.injCut.some(Boolean)) ol = { k: 'cylinder shut-off (trims frozen)' };
+    else if (S.runT < 3) ol = { k: 'post-start stabilisation' };
     const clWas = S.closedLoop;
-    S.closedLoop = ol === '';
-    S.olReason = ol;
+    S.closedLoop = !ol;
+    S.olReason = ol || { k: '' };
     if (S.closedLoop && !clWas) log(S, 'CLOSED LOOP: ECU now trims fuel from the upstream O2 sensor (switching around λ = 1).', 'ok');
-    if (!S.closedLoop && clWas) log(S, `OPEN LOOP: ${ol}.`, 'info');
+    if (!S.closedLoop && clWas) log(S, 'OPEN LOOP: {ol}.', 'info', { ol });
 
     if (S.closedLoop) {
       // rich/lean decision with a hysteresis band so sensor noise can't chatter the controller

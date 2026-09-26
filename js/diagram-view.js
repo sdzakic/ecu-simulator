@@ -33,6 +33,7 @@
     { id: 'fuellvl', x: 1010, y: 404, tx: -26, ty: 34 },
   ];
 
+  const T = (s, v) => ECU.t(s, v);
   const COL = { air: '#3fc6ff', hot: '#ff9f43', fuel: '#ffb020', exh: '#b0876a' };
 
   function build() {
@@ -101,7 +102,7 @@
     // air filter
     s.push(`<g><rect class="comp" x="18" y="58" width="72" height="64" rx="10"/>
       ${Array.from({ length: 7 }, (_, i) => `<line x1="${28 + i * 9}" y1="66" x2="${28 + i * 9}" y2="114" stroke="#2a3a4e" stroke-width="2"/>`).join('')}
-      <text class="lbl-s" x="54" y="140" text-anchor="middle">Air filter</text></g>`);
+      <text class="lbl-s" x="54" y="140" text-anchor="middle">${T('Air filter')}</text></g>`);
     s.push(`<text class="lbl-s" x="145" y="126" text-anchor="middle">MAF</text>`);
 
     // turbo compressor + turbine + shaft
@@ -110,38 +111,38 @@
     s.push(snail(250, 90, 'compWheel', '#7fd8ff'));
     s.push(snail(250, 350, 'turbWheel', '#ff9a5a'));
     s.push(`<g class="turbo-only"><line x1="250" y1="122" x2="250" y2="318" stroke="#3a4a5e" stroke-width="5" stroke-dasharray="2 5"/>
-      <text class="lbl-s" x="258" y="215">turbo shaft</text>
-      <text class="lbl-c" x="250" y="146" text-anchor="middle" dx="-58">Compressor</text>
-      <text class="lbl-c" x="250" y="306" text-anchor="middle" dx="-50">Turbine</text></g>`);
+      <text class="lbl-s" x="258" y="215">${T('turbo shaft')}</text>
+      <text class="lbl-c" x="250" y="146" text-anchor="middle" dx="-58">${T('Compressor')}</text>
+      <text class="lbl-c" x="250" y="306" text-anchor="middle" dx="-50">${T('Turbine')}</text></g>`);
     // intercooler
     s.push(`<g class="turbo-only"><rect x="322" y="58" width="96" height="64" rx="8" fill="url(#gIC)" stroke="#2a3a4e" stroke-width="1.5"/>
       ${Array.from({ length: 10 }, (_, i) => `<line x1="${330 + i * 9}" y1="62" x2="${330 + i * 9}" y2="118" stroke="#35506a" stroke-width="1.5"/>`).join('')}
-      <text class="lbl-s" x="370" y="140" text-anchor="middle">Intercooler</text></g>`);
+      <text class="lbl-s" x="370" y="140" text-anchor="middle">${T('Intercooler')}</text></g>`);
     // BOV
     s.push(`<g class="turbo-only"><rect class="comp" x="455" y="96" width="14" height="16" rx="3"/><circle id="bovPuff" cx="462" cy="124" r="4" fill="#cfe9ff" opacity="0"/>
       <text class="lbl-s" x="462" y="150" text-anchor="middle" font-size="9">BOV</text></g>`);
     // wastegate flap
     s.push(`<g class="turbo-only"><circle class="comp" cx="250" cy="400" r="9"/><line id="wgFlap" x1="250" y1="400" x2="250" y2="391" stroke="#ff9a5a" stroke-width="3" stroke-linecap="round"/>
-      <text class="lbl-s" x="250" y="446" text-anchor="middle">Wastegate</text></g>`);
+      <text class="lbl-s" x="250" y="446" text-anchor="middle">${T('Wastegate')}</text></g>`);
 
     // throttle body
     s.push(`<g><rect class="comp" x="470" y="70" width="40" height="40" rx="6"/><line id="thrPlate" x1="490" y1="74" x2="490" y2="106" stroke="#c7d2de" stroke-width="3" stroke-linecap="round"/>
-      <text class="lbl-s" x="490" y="126" text-anchor="middle">Throttle</text></g>`);
+      <text class="lbl-s" x="490" y="126" text-anchor="middle">${T('Throttle')}</text></g>`);
     // plenum
-    s.push(`<g><rect class="comp" x="540" y="70" width="320" height="40" rx="14"/><text class="lbl-c" x="700" y="95" text-anchor="middle">Intake manifold</text></g>`);
+    s.push(`<g><rect class="comp" x="540" y="70" width="320" height="40" rx="14"/><text class="lbl-c" x="700" y="95" text-anchor="middle">${T('Intake manifold')}</text></g>`);
     // engine block
     s.push(`<g><rect x="560" y="150" width="280" height="150" rx="14" fill="url(#gEng)" stroke="#2a3a4e" stroke-width="1.5"/>
       <rect x="560" y="150" width="280" height="30" rx="10" fill="#1c2a3c"/>
       ${[590, 660, 730, 800].map((x, i) => `<g><rect x="${x - 24}" y="186" width="48" height="96" rx="8" fill="#0d141d" stroke="#2a3a4e"/><circle id="cylFire${i}" cx="${x}" cy="206" r="20" fill="url(#gFire)" opacity="0"/><rect id="cylPiston${i}" x="${x - 20}" y="230" width="40" height="14" rx="3" fill="#8796a8"/><text class="lbl-s" x="${x}" y="296" text-anchor="middle">${i + 1}</text>
         <path id="injSpray${i}" d="M${x - 10} 140 l-6 12 l12 0 z" fill="#ffb020" opacity=".25"/></g>`).join('')}
-      <text class="lbl-c" x="700" y="170" text-anchor="middle">Cylinder head · DOHC 16V</text></g>`);
+      <text class="lbl-c" x="700" y="170" text-anchor="middle">${T('Cylinder head · DOHC 16V')}</text></g>`);
     // catalyst
     s.push(`<g><rect class="comp" x="110" y="330" width="70" height="40" rx="14"/>
       ${Array.from({ length: 6 }, (_, i) => `<line x1="${120 + i * 10}" y1="336" x2="${120 + i * 10}" y2="364" stroke="#3a4a5e" stroke-width="1.5"/>`).join('')}
       <rect id="catGlow" x="110" y="330" width="70" height="40" rx="14" fill="#ff7a3d" opacity="0"/>
-      <text class="lbl-s" x="145" y="390" text-anchor="middle">Catalyst</text></g>`);
-    s.push(`<text class="lbl-s" x="22" y="330">Tailpipe</text>`);
-    s.push(`<text class="lbl-s na-only" x="380" y="376">Exhaust</text>`);
+      <text class="lbl-s" x="145" y="390" text-anchor="middle">${T('Catalyst')}</text></g>`);
+    s.push(`<text class="lbl-s" x="22" y="330">${T('Tailpipe')}</text>`);
+    s.push(`<text class="lbl-s na-only" x="380" y="376">${T('Exhaust')}</text>`);
 
     // ECU
     s.push(`<g id="ecuBox"><rect x="905" y="150" width="170" height="120" rx="14" fill="#0e1622" stroke="#2ee6c5" stroke-opacity=".45" stroke-width="1.5"/>
@@ -149,13 +150,13 @@
       ${Array.from({ length: 6 }, (_, i) => `<line x1="${956 + i * 9}" y1="176" x2="${956 + i * 9}" y2="182" stroke="#3a4a5e" stroke-width="2"/><line x1="${956 + i * 9}" y1="238" x2="${956 + i * 9}" y2="244" stroke="#3a4a5e" stroke-width="2"/>`).join('')}
       <text x="978" y="215" text-anchor="middle" font-family="JetBrains Mono" font-weight="700" font-size="13" fill="#2ee6c5">ECU</text>
       <circle id="ecuLed" cx="1060" cy="164" r="4" fill="#3ee07a" opacity=".2"/>
-      <text class="lbl-s" x="918" y="262">32-bit · 1 kHz loop</text></g>`);
+      <text class="lbl-s" x="918" y="262">${T('32-bit · 1 kHz loop')}</text></g>`);
     // chassis
-    s.push(`<g><rect class="comp" x="915" y="40" width="80" height="48" rx="8"/><text class="lbl-s" x="955" y="102" text-anchor="middle">Battery</text>
-      <text class="lbl-s" x="1045" y="102" text-anchor="middle">A/C</text>
-      <text class="lbl-s" x="930" y="300" text-anchor="middle">Pedal</text><text class="lbl-s" x="990" y="300" text-anchor="middle">Brake</text><text class="lbl-s" x="1052" y="300" text-anchor="middle">Wheel</text>
+    s.push(`<g><rect class="comp" x="915" y="40" width="80" height="48" rx="8"/><text class="lbl-s" x="955" y="102" text-anchor="middle">${T('Battery')}</text>
+      <text class="lbl-s" x="1045" y="102" text-anchor="middle">${T('A/C')}</text>
+      <text class="lbl-s" x="930" y="300" text-anchor="middle">${T('Pedal')}</text><text class="lbl-s" x="990" y="300" text-anchor="middle">${T('Brake')}</text><text class="lbl-s" x="1052" y="300" text-anchor="middle">${T('Wheel')}</text>
       <rect class="comp" x="935" y="385" width="140" height="56" rx="10"/><rect id="fuelLvlRect" x="937" y="420" width="136" height="19" rx="8" fill="#ffb020" opacity=".25"/>
-      <text class="lbl-s" x="1005" y="460" text-anchor="middle">Fuel tank + pump</text></g>`);
+      <text class="lbl-s" x="1005" y="460" text-anchor="middle">${T('Fuel tank + pump')}</text></g>`);
     // sensor wires to ECU (subtle)
     s.push(`<path d="M905 210 C860 210 880 210 860 210" stroke="#1d2836" stroke-width="2" fill="none"/>`);
 
@@ -186,7 +187,7 @@
       const def = byId[id];
       g.querySelector('.ab').textContent = def ? def.abbr.replace(' ', '').slice(0, 5) : id;
       const tip = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      tip.textContent = def ? def.name : id;
+      tip.textContent = def ? ECU.info('sensors', def, 'name') : id;
       g.appendChild(tip);
       this.nodes[id] = { g, ring: g.querySelector('.ring'), val: g.querySelector('.val'), bg: g.querySelector('.tag-bg') };
       g.addEventListener('click', () => onPick(id));

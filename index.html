@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="hr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -16,39 +16,43 @@
         <svg viewBox="0 0 32 32"><rect x="6" y="6" width="20" height="20" rx="3"/><path d="M11 2v4M16 2v4M21 2v4M11 26v4M16 26v4M21 26v4M2 11h4M2 16h4M2 21h4M26 11h4M26 16h4M26 21h4"/><circle cx="16" cy="16" r="4"/></svg>
       </div>
       <div>
-        <h1>ECU Simulator</h1>
-        <p>Engine management, sensor by sensor</p>
+        <h1 data-i18n>ECU Simulator</h1>
+        <p data-i18n>Engine management, sensor by sensor</p>
       </div>
     </div>
 
     <div class="seg engine-seg" id="engineSel" role="tablist" aria-label="Engine type">
-      <button data-engine="na" class="active"><span class="seg-title">Naturally aspirated</span><span class="seg-sub">2.0 L I4 · 11:1</span></button>
-      <button data-engine="turbo"><span class="seg-title">Turbocharged</span><span class="seg-sub">2.0 L I4 · intercooled</span></button>
+      <button data-engine="na" class="active"><span class="seg-title" data-i18n>Naturally aspirated</span><span class="seg-sub">2.0 L I4 · 11:1</span></button>
+      <button data-engine="turbo"><span class="seg-title" data-i18n>Turbocharged</span><span class="seg-sub" data-i18n>2.0 L I4 · intercooled</span></button>
     </div>
 
     <div class="top-right">
-      <div class="speed-wrap" title="Crank-angle views (engine, trigger wheels, timing scope) run in slow motion so you can follow each event. Physics always runs in real time.">
-        <span class="lbl">Slow-mo</span>
+      <div class="speed-wrap" data-i18n-title title="Crank-angle views (engine, trigger wheels, timing scope) run in slow motion so you can follow each event. Physics always runs in real time.">
+        <span class="lbl" data-i18n>Slow-mo</span>
         <div class="seg small" id="speedSel">
-          <button data-speed="auto" class="active">Auto</button>
+          <button data-speed="auto" class="active" data-i18n>Auto</button>
           <button data-speed="0.01">1%</button>
           <button data-speed="0.05">5%</button>
           <button data-speed="0.2">20%</button>
-          <button data-speed="1">Real</button>
+          <button data-speed="1" data-i18n>Real</button>
         </div>
       </div>
-      <button class="btn icon" id="pauseBtn" title="Pause (P)"><svg viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg><span>Pause</span></button>
-      <button class="btn icon ghost" id="helpBtn" title="How to use"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5v.7M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="btn icon" id="pauseBtn" data-i18n-title title="Pause (P)"><svg viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg><span>Pause</span></button>
+      <button class="btn icon ghost" id="helpBtn" data-i18n-title title="How to use"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5v.7M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <div class="seg small lang-seg" id="langSel" role="group" aria-label="Language / Jezik">
+        <button data-lang="hr" title="Hrvatski">HR</button>
+        <button data-lang="en" title="English">EN</button>
+      </div>
     </div>
   </header>
 
   <main class="layout">
     <!-- ============ CONTROLS ============ -->
     <aside class="panel controls" id="controls">
-      <div class="panel-h"><h2>Driver &amp; test bench</h2></div>
+      <div class="panel-h"><h2 data-i18n>Driver &amp; test bench</h2></div>
 
       <section class="ctl">
-        <h3>Ignition</h3>
+        <h3><span data-i18n>Ignition</span></h3>
         <div class="key-wrap">
           <div class="keydial" id="keyDial">
             <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -59,76 +63,76 @@
                 <circle cx="60" cy="60" r="5" class="kd-hole"/>
               </g>
             </svg>
-            <button data-key="OFF" class="kpos" style="--a:-60deg">OFF</button>
+            <button data-key="OFF" class="kpos" style="--a:-60deg" data-i18n>OFF</button>
             <button data-key="ACC" class="kpos" style="--a:-20deg">ACC</button>
-            <button data-key="ON" class="kpos" style="--a:20deg">ON</button>
-            <button data-key="START" class="kpos" style="--a:60deg">START</button>
+            <button data-key="ON" class="kpos" style="--a:20deg" data-i18n>ON</button>
+            <button data-key="START" class="kpos" style="--a:60deg" data-i18n>START</button>
           </div>
           <div class="key-side">
-            <button class="btn primary" id="quickStart">⚡ Start engine</button>
-            <p class="hint" id="keyHint">Key OFF — ECU asleep.</p>
+            <button class="btn primary" id="quickStart" data-i18n>⚡ Start engine</button>
+            <p class="hint" id="keyHint"></p>
           </div>
         </div>
       </section>
 
       <section class="ctl">
-        <h3>Accelerator pedal <span class="val mono" id="pedalVal">0 %</span></h3>
+        <h3><span data-i18n>Accelerator pedal</span> <span class="val mono" id="pedalVal">0 %</span></h3>
         <div class="pedal-row">
           <input type="range" id="pedal" min="0" max="100" value="0" step="1" class="range big" />
         </div>
         <div class="chips" id="pedalChips">
-          <button data-p="0">0</button><button data-p="15">15</button><button data-p="30">30</button><button data-p="60">60</button><button data-p="100">WOT</button>
+          <button data-p="0">0</button><button data-p="15">15</button><button data-p="30">30</button><button data-p="60">60</button><button data-p="100" data-i18n>WOT</button>
         </div>
-        <p class="hint">Hold <kbd>W</kbd>/<kbd>↑</kbd> for full throttle · <kbd>Space</kbd> brake</p>
+        <p class="hint" data-i18n-html>Hold <kbd>W</kbd>/<kbd>↑</kbd> for full throttle · <kbd>Space</kbd> brake</p>
       </section>
 
       <section class="ctl">
-        <h3>Transmission <span class="sub">auto, manual select</span></h3>
+        <h3><span data-i18n>Transmission</span> <span class="sub" data-i18n>auto, manual select</span></h3>
         <div class="seg gears" id="gearSel">
           <button data-g="0" class="active">N</button><button data-g="1">1</button><button data-g="2">2</button><button data-g="3">3</button><button data-g="4">4</button><button data-g="5">5</button>
         </div>
         <div class="row2">
-          <button class="btn hold" id="brakeBtn">Brake</button>
-          <div class="mini-stat"><span class="lbl">Speed</span><span class="mono" id="speedVal">0 km/h</span></div>
+          <button class="btn hold" id="brakeBtn" data-i18n>Brake</button>
+          <div class="mini-stat"><span class="lbl" data-i18n>Speed</span><span class="mono" id="speedVal">0 km/h</span></div>
         </div>
       </section>
 
       <section class="ctl turbo-only">
-        <h3>Boost target <span class="val mono" id="boostTgtVal">1.00 bar</span></h3>
+        <h3><span data-i18n>Boost target</span> <span class="val mono" id="boostTgtVal">1.00 bar</span></h3>
         <input type="range" id="boostTgt" min="0.3" max="1.6" step="0.05" value="1.0" class="range" />
       </section>
 
       <section class="ctl">
-        <h3>Environment</h3>
-        <label class="slider-lbl">Ambient <span class="mono" id="ambVal">20 °C</span></label>
+        <h3><span data-i18n>Environment</span></h3>
+        <label class="slider-lbl"><span data-i18n>Ambient</span> <span class="mono" id="ambVal">20 °C</span></label>
         <input type="range" id="ambient" min="-20" max="45" step="1" value="20" class="range" />
-        <label class="slider-lbl">Road grade <span class="mono" id="gradeVal">0 %</span></label>
+        <label class="slider-lbl"><span data-i18n>Road grade</span> <span class="mono" id="gradeVal">0 %</span></label>
         <input type="range" id="grade" min="-8" max="12" step="1" value="0" class="range" />
-        <label class="slider-lbl">Fuel octane (RON)</label>
+        <label class="slider-lbl"><span data-i18n>Fuel octane (RON)</span></label>
         <div class="seg small wide" id="octaneSel">
           <button data-o="91">91</button><button data-o="95" class="active">95</button><button data-o="98">98</button><button data-o="102">102</button>
         </div>
         <div class="row2 toggles">
-          <button class="toggle" id="acBtn"><span class="dot"></span>A/C</button>
-          <button class="toggle" id="lightsBtn"><span class="dot"></span>Headlights</button>
+          <button class="toggle" id="acBtn"><span class="dot"></span><span data-i18n>A/C</span></button>
+          <button class="toggle" id="lightsBtn"><span class="dot"></span><span data-i18n>Headlights</span></button>
         </div>
         <div class="row2">
-          <button class="btn ghost sm" id="coldSoak">❄ Cold soak</button>
-          <button class="btn ghost sm" id="hotSoak">♨ Warm engine</button>
+          <button class="btn ghost sm" id="coldSoak" data-i18n>❄ Cold soak</button>
+          <button class="btn ghost sm" id="hotSoak" data-i18n>♨ Warm engine</button>
         </div>
       </section>
 
       <section class="ctl">
-        <h3>CKP sensor type</h3>
+        <h3><span data-i18n>CKP sensor type</span></h3>
         <div class="seg small wide" id="ckpSel">
-          <button data-t="vr" class="active">Variable reluctance</button><button data-t="hall">Hall effect</button>
+          <button data-t="vr" class="active" data-i18n>Variable reluctance</button><button data-t="hall" data-i18n>Hall effect</button>
         </div>
       </section>
 
       <section class="ctl faults">
-        <h3>Fault injection <span class="sub">break things!</span></h3>
+        <h3><span data-i18n>Fault injection</span> <span class="sub" data-i18n>break things!</span></h3>
         <div id="faultList" class="fault-list"></div>
-        <button class="btn ghost sm full" id="clearDtc">🔧 Scan tool: clear DTCs</button>
+        <button class="btn ghost sm full" id="clearDtc" data-i18n>🔧 Scan tool: clear DTCs</button>
       </section>
     </aside>
 
@@ -141,20 +145,20 @@
     <!-- ============ ENGINE ============ -->
     <section class="panel engine">
       <div class="panel-h">
-        <h2>Inside the engine <span class="sub">firing order 1-3-4-2 · each cylinder cut open</span></h2>
+        <h2><span data-i18n>Inside the engine</span> <span class="sub" data-i18n>firing order 1-3-4-2 · each cylinder cut open</span></h2>
         <div class="legend" id="strokeLegend"></div>
       </div>
       <div class="canvas-wrap"><canvas id="engineCanvas" height="360"></canvas></div>
       <div class="engine-foot">
-        <div class="angle-readout"><span class="lbl">Crank</span><span class="mono big" id="crankDeg">0°</span><span class="lbl">Cam</span><span class="mono" id="camDeg">0°</span></div>
-        <div class="now-box" id="nowBox">Turn the key to ON and press START.</div>
+        <div class="angle-readout"><span class="lbl" data-i18n>Crank</span><span class="mono big" id="crankDeg">0°</span><span class="lbl" data-i18n>Cam</span><span class="mono" id="camDeg">0°</span></div>
+        <div class="now-box" id="nowBox"></div>
       </div>
     </section>
 
     <!-- ============ TRIGGER WHEELS ============ -->
     <section class="panel wheels">
       <div class="panel-h">
-        <h2>How the ECU knows where the engine is</h2>
+        <h2 data-i18n>How the ECU knows where the engine is</h2>
         <div class="sync-pill" id="syncPill">NO SYNC</div>
       </div>
       <div class="canvas-wrap"><canvas id="wheelCanvas" height="300"></canvas></div>
@@ -162,14 +166,14 @@
 
     <!-- ============ SENSORS ============ -->
     <aside class="panel sensors">
-      <div class="panel-h"><h2>Sensors <span class="sub">click for details</span></h2><span class="count" id="sensorCount"></span></div>
+      <div class="panel-h"><h2><span data-i18n>Sensors</span> <span class="sub" data-i18n>click for details</span></h2><span class="count" id="sensorCount"></span></div>
       <div id="sensorList" class="sensor-list"></div>
     </aside>
 
     <!-- ============ SCOPE ============ -->
     <section class="panel scope">
       <div class="panel-h">
-        <h2>Engine cycle timing <span class="sub">one full cycle = 720° of crank = 2 revolutions · what the ECU sees and commands, and when</span></h2>
+        <h2><span data-i18n>Engine cycle timing</span> <span class="sub" data-i18n>one full cycle = 720° of crank = 2 revolutions · what the ECU sees and commands, and when</span></h2>
         <div class="scope-read mono" id="scopeRead"></div>
       </div>
       <div class="canvas-wrap"><canvas id="scopeCanvas" height="440"></canvas></div>
@@ -178,12 +182,12 @@
     <!-- ============ DIAGRAM ============ -->
     <section class="panel diagram">
       <div class="panel-h">
-        <h2>Air, fuel &amp; exhaust path <span class="sub">live flow · click any sensor</span></h2>
+        <h2><span data-i18n>Air, fuel &amp; exhaust path</span> <span class="sub" data-i18n>live flow · click any sensor</span></h2>
         <div class="legend">
-          <span><i style="background:var(--air)"></i>Fresh air</span>
-          <span class="turbo-only"><i style="background:var(--hot)"></i>Compressed (hot)</span>
-          <span><i style="background:var(--fuel)"></i>Fuel</span>
-          <span><i style="background:var(--exh)"></i>Exhaust</span>
+          <span><i style="background:var(--air)"></i><span data-i18n>Fresh air</span></span>
+          <span class="turbo-only"><i style="background:var(--hot)"></i><span data-i18n>Compressed (hot)</span></span>
+          <span><i style="background:var(--fuel)"></i><span data-i18n>Fuel</span></span>
+          <span><i style="background:var(--exh)"></i><span data-i18n>Exhaust</span></span>
         </div>
       </div>
       <div id="diagramWrap" class="diagram-wrap"></div>
@@ -191,33 +195,31 @@
 
     <!-- ============ ECU BRAIN ============ -->
     <section class="panel brain">
-      <div class="panel-h"><h2>What the ECU is thinking</h2><div class="mode-pill" id="modePill">OFF</div></div>
+      <div class="panel-h"><h2 data-i18n>What the ECU is thinking</h2><div class="mode-pill" id="modePill">OFF</div></div>
       <div id="brain" class="brain-body"></div>
     </section>
 
     <!-- ============ TRENDS ============ -->
     <section class="panel trends">
-      <div class="panel-h"><h2>Live data <span class="sub">last 30 s</span></h2></div>
+      <div class="panel-h"><h2><span data-i18n>Live data</span> <span class="sub" data-i18n>last 30 s</span></h2></div>
       <div class="canvas-wrap"><canvas id="trendCanvas" height="340"></canvas></div>
     </section>
 
     <!-- ============ LOG ============ -->
     <section class="panel log">
-      <div class="panel-h"><h2>ECU event log</h2><div class="dtc-count" id="dtcCount"></div></div>
+      <div class="panel-h"><h2 data-i18n>ECU event log</h2><div class="dtc-count" id="dtcCount"></div></div>
       <div id="dtcList" class="dtc-list"></div>
       <div id="logList" class="log-list"></div>
     </section>
 
     <!-- ============ ACTUATORS ============ -->
     <section class="panel actuators">
-      <div class="panel-h"><h2>ECU outputs <span class="sub">actuators</span></h2></div>
+      <div class="panel-h"><h2><span data-i18n>ECU outputs</span> <span class="sub" data-i18n>actuators</span></h2></div>
       <div id="actList" class="act-list"></div>
     </section>
   </main>
 
-  <footer class="foot">
-    Educational model — simplified physics tuned to behave like a real 2.0 L port-injected engine. Thermal behaviour sped up ~8× so warm-up is watchable.
-  </footer>
+  <footer class="foot" data-i18n>Educational model — simplified physics tuned to behave like a real 2.0 L port-injected engine. Thermal behaviour sped up ~8× so warm-up is watchable.</footer>
 
   <!-- Info drawer -->
   <div class="drawer" id="drawer" aria-hidden="true">
@@ -229,8 +231,8 @@
   <div class="modal" id="helpModal" aria-hidden="true">
     <div class="modal-card">
       <button class="drawer-x" data-close>×</button>
-      <h2>How to use the simulator</h2>
-      <ol>
+      <h2 data-i18n>How to use the simulator</h2>
+      <ol data-i18n-html>
         <li><b>Start:</b> click <em>⚡ Start engine</em> (or turn the key to ON, wait for the bulb check and fuel pump prime, then START). Watch the CKP gap and the cam pulse bring the ECU into sync.</li>
         <li><b>Watch it warm up:</b> cold-start enrichment, high idle and retarded spark for catalyst heating fade away. At 35 °C the ECU enters <em>closed loop</em> — the O2 sensor starts switching.</li>
         <li><b>Drive:</b> pick a gear, press the pedal (hold <kbd>W</kbd>), brake with <kbd>Space</kbd>. Try WOT for power enrichment, release above 1700 rpm for decel fuel cut, hit the rev limiter.</li>
@@ -238,11 +240,14 @@
         <li><b>Break things:</b> inject faults on the left and see how the ECU detects them, stores DTCs and falls back to backup strategies.</li>
         <li><b>Slow-mo:</b> the crank-angle views run slowed down so you can follow each injection and spark. Pause (<kbd>P</kbd>) and drag across the timing scope to scrub the crank.</li>
       </ol>
-      <p class="hint">Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause</p>
+      <p class="hint" data-i18n-html>Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause</p>
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
+  <script src="js/i18n-hr.js"></script>
   <script src="js/info.js"></script>
+  <script src="js/info-hr.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/draw-util.js"></script>
   <script src="js/engine-view.js"></script>

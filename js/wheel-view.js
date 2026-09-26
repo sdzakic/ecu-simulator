@@ -4,6 +4,7 @@
   const { fit, rr, glow, noGlow, rgba } = ECU.draw;
   const C = ECU.C;
   const D2R = Math.PI / 180;
+  const T = (s, v) => ECU.t(s, v);
 
   function WheelView(canvas) { this.canvas = canvas; this.t = 0; }
 
@@ -26,7 +27,7 @@
 
       ctx.fillStyle = C.muted;
       ctx.font = '700 10px Inter, sans-serif';
-      ctx.fillText('CRANKSHAFT · 60-2 TRIGGER WHEEL', ox + 8, 14);
+      ctx.fillText(T('CRANKSHAFT · 60-2 TRIGGER WHEEL'), ox + 8, 14);
 
       // disc
       const dg = ctx.createRadialGradient(cx, cy, 4, cx, cy, R);
@@ -71,7 +72,7 @@
         ctx.fillStyle = C.accent;
         ctx.font = '700 8.5px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('GAP', cx + Math.cos(gm) * (R - 18), cy + Math.sin(gm) * (R - 18) + 3);
+        ctx.fillText(T('GAP'), cx + Math.cos(gm) * (R - 18), cy + Math.sin(gm) * (R - 18) + 3);
         // TDC marks
         [[90, 'TDC 1/4'], [270, 'TDC 2/3']].forEach(([wa, t]) => {
           const m = (a - wa) * D2R - Math.PI / 2;
@@ -80,7 +81,7 @@
           ctx.arc(cx + Math.cos(m) * (R - 14), cy + Math.sin(m) * (R - 14), 2.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = rgba(C.spark, 0.75);
-          ctx.fillText(t, cx + Math.cos(m) * (R - 32), cy + Math.sin(m) * (R - 32) + 3);
+          ctx.fillText(T(t), cx + Math.cos(m) * (R - 32), cy + Math.sin(m) * (R - 32) + 3);
         });
         ctx.textAlign = 'left';
       }
@@ -105,18 +106,18 @@
       }
       ctx.fillStyle = ckpDead ? C.bad : C.muted;
       ctx.font = '700 9px "JetBrains Mono", monospace';
-      ctx.fillText(ckpDead ? 'CKP ✕ OPEN' : S.ckpType === 'vr' ? 'CKP (VR)' : 'CKP (Hall)', cx + 16, cy - R - 20);
+      ctx.fillText(ckpDead ? T('CKP ✕ OPEN') : S.ckpType === 'vr' ? 'CKP (VR)' : 'CKP (Hall)', cx + 16, cy - R - 20);
 
       // info text
       const tx = cx + R + 22;
       const lines = [];
       const period = S.rpm > 1 ? (60000 / S.rpm / 60) : 0;
-      lines.push(['Tooth under sensor', tooth.missing ? 'GAP (58–59)' : `#${tooth.idx + 1} of 58`]);
+      lines.push(['Tooth under sensor', tooth.missing ? T('GAP (58–59)') : T('#{n} of 58', { n: tooth.idx + 1 })]);
       const l360 = ((theta % 360) + 360) % 360;
-      lines.push(['Crank angle', l360 < 180 ? `${l360.toFixed(0)}° ATDC 1/4` : `${(360 - l360).toFixed(0)}° BTDC 1/4`]);
+      lines.push(['Crank angle', l360 < 180 ? T('{a}° ATDC 1/4', { a: l360.toFixed(0) }) : T('{a}° BTDC 1/4', { a: (360 - l360).toFixed(0) })]);
       lines.push(['Tooth period', period ? `${period.toFixed(2)} ms` : '—']);
-      lines.push(['Signal', ckpDead ? 'none!' : S.ckpType === 'vr' ? `±${(Math.max(0.2, S.rpm / 450)).toFixed(1)} V AC` : '0 / 5 V square']);
-      lines.push(['Gives the ECU', 'RPM + position']);
+      lines.push(['Signal', ckpDead ? T('none!') : S.ckpType === 'vr' ? `±${(Math.max(0.2, S.rpm / 450)).toFixed(1)} V AC` : T('0 / 5 V square')]);
+      lines.push(['Gives the ECU', T('RPM + position')]);
       this.infoLines(ctx, tx, 44, lines, Math.max(120, colW - tx - 8));
 
       // trace
@@ -138,7 +139,7 @@
 
       ctx.fillStyle = C.muted;
       ctx.font = '700 10px Inter, sans-serif';
-      ctx.fillText('INTAKE CAMSHAFT · 1 TAB (turns at ½ crank speed)', ox + 8, oy + 14);
+      ctx.fillText(T('INTAKE CAMSHAFT · 1 TAB (turns at ½ crank speed)'), ox + 8, oy + 14);
 
       const dg = ctx.createRadialGradient(cx, cy, 4, cx, cy, R);
       dg.addColorStop(0, '#2d2742'); dg.addColorStop(1, '#1a1728');
@@ -190,15 +191,15 @@
       }
       ctx.fillStyle = cmpDead ? C.bad : C.muted;
       ctx.font = '700 9px "JetBrains Mono", monospace';
-      ctx.fillText(cmpDead ? 'CMP ✕ FAIL' : 'CMP (Hall)', cx + 16, cy - R - 24);
+      ctx.fillText(cmpDead ? T('CMP ✕ FAIL') : 'CMP (Hall)', cx + 16, cy - R - 24);
 
       const tx = cx + R + 26;
       const lines = [
         ['Cam angle', `${psi.toFixed(0)}°`],
-        ['Signal now', cmpDead ? 'none' : high ? 'HIGH (tab)' : 'low'],
-        ['Cam phase (VVT)', `${(S.vvt || 0).toFixed(1)}° adv`],
-        ['Pulses', '1 per 720° crank'],
-        ['Gives the ECU', 'which stroke'],
+        ['Signal now', cmpDead ? T('none') : high ? T('HIGH (tab)') : T('low')],
+        ['Cam phase (VVT)', T('{a}° adv', { a: (S.vvt || 0).toFixed(1) })],
+        ['Pulses', T('1 per 720° crank')],
+        ['Gives the ECU', T('which stroke')],
       ];
       this.infoLines(ctx, tx, oy + 44, lines, Math.max(120, ox + colW - tx - 8));
 
@@ -211,7 +212,7 @@
     lines.forEach((ln, i) => {
       ctx.font = '600 9.5px Inter, sans-serif';
       ctx.fillStyle = C.dim;
-      ctx.fillText(ln[0].toUpperCase(), x, y + i * 30);
+      ctx.fillText(T(ln[0]).toUpperCase(), x, y + i * 30);
       ctx.font = '700 12.5px "JetBrains Mono", monospace';
       ctx.fillStyle = C.text;
       let t = ln[1];
@@ -251,7 +252,7 @@
     noGlow(ctx);
     ctx.fillStyle = C.dim;
     ctx.font = '600 9px Inter, sans-serif';
-    ctx.fillText(label, x + 10, y + 12);
+    ctx.fillText(T(label), x + 10, y + 12);
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(x + w - 6, mid - fn(theta) * amp, 3, 0, Math.PI * 2); ctx.fill();
   };

@@ -17,6 +17,10 @@ Open `index.html` in a browser. There is no build step and nothing to install. Y
 | Sensors (26) | Value, electrical signal (volts / Hz / Ω) and status for each; click one for a full explanation |
 | Actuators, live data, event log | ECU outputs, 30 s trends, narrated event log and stored DTCs |
 
+## Languages
+
+Croatian is the default; switch with **HR / EN** in the top-right corner (the choice is remembered). English source strings are the translation keys: `js/i18n-hr.js` holds UI strings and `js/info-hr.js` the long sensor/actuator/fault explanations. After changing any text, run `node scripts/check-i18n.mjs` to list strings that still need a Croatian translation.
+
 ## Files
 
 - `js/sim.js` contains the engine physics and ECU strategy. It doesn't touch the DOM, so it also runs headless in Node.

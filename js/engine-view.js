@@ -8,6 +8,7 @@
   const G = { bw: 46, roof: 100, yc: 268, r: 34, l: 104, crown: 24, skirt: 18, camY: 36, vx: 22 };
   const STROKE_COL = ['#ff7a3d', '#a08a7a', '#3fc6ff', '#b98cff'];
   const STROKE_NAME = ['POWER', 'EXHAUST', 'INTAKE', 'COMPRESSION'];
+  const T = (s, v) => ECU.t(s, v);
 
   function EngineView(canvas) {
     this.canvas = canvas;
@@ -381,10 +382,10 @@
     ctx.textAlign = 'center';
     ctx.font = '700 12px Inter, sans-serif';
     ctx.fillStyle = C.text;
-    ctx.fillText(`CYL ${c + 1}`, 0, 336);
+    ctx.fillText(T('CYL {c}', { c: c + 1 }), 0, 336);
     const sc = STROKE_COL[stroke];
     ctx.font = '800 9.5px Inter, sans-serif';
-    const label = STROKE_NAME[stroke];
+    const label = T(STROKE_NAME[stroke]);
     const tw = ctx.measureText(label).width + 12;
     ctx.fillStyle = rgba(sc, 0.18);
     rr(ctx, -tw / 2, 342, tw, 15, 4);
@@ -396,19 +397,19 @@
     ctx.font = '500 9.5px "JetBrains Mono", monospace';
     ctx.fillStyle = C.muted;
     const l360 = L % 360;
-    const angTxt = l360 < 180 ? `${Math.round(l360)}° ATDC` : `${Math.round(360 - l360)}° BTDC`;
+    const angTxt = l360 < 180 ? T('{a}° ATDC', { a: Math.round(l360) }) : T('{a}° BTDC', { a: Math.round(360 - l360) });
     ctx.fillText(angTxt, 0, 322);
 
     // event tags
     const tags = [];
-    if (sparkNow) tags.push([`⚡ SPARK ${adv.toFixed(0)}° BTDC`, C.spark]);
-    else if (wasted) tags.push(['wasted spark', C.muted]);
-    else if (dwellNow) tags.push(['coil charging', rgba(C.spark, 0.8)]);
-    if (injNow) tags.push([`INJ ${S.pw.toFixed(1)} ms`, C.fuel]);
-    if (this.knockShown[c]) tags.push(['KNOCK!', '#ffffff']);
-    if (S.faults.misfire3 && c === 2 && S.running) tags.push(['NO SPARK', C.bad]);
-    if (S.injCut[c]) tags.push(['INJ CUT', C.bad]);
-    if (S.fuelCutAll && S.running && (S.dfco || S.revCut || S.overboostCut)) tags.push([S.dfco ? 'DFCO' : S.revCut ? 'REV CUT' : 'OB CUT', C.warn]);
+    if (sparkNow) tags.push([T('⚡ SPARK {a}° BTDC', { a: adv.toFixed(0) }), C.spark]);
+    else if (wasted) tags.push([T('wasted spark'), C.muted]);
+    else if (dwellNow) tags.push([T('coil charging'), rgba(C.spark, 0.8)]);
+    if (injNow) tags.push([T('INJ {pw} ms', { pw: S.pw.toFixed(1) }), C.fuel]);
+    if (this.knockShown[c]) tags.push([T('KNOCK!'), '#ffffff']);
+    if (S.faults.misfire3 && c === 2 && S.running) tags.push([T('NO SPARK'), C.bad]);
+    if (S.injCut[c]) tags.push([T('INJ CUT'), C.bad]);
+    if (S.fuelCutAll && S.running && (S.dfco || S.revCut || S.overboostCut)) tags.push([S.dfco ? 'DFCO' : S.revCut ? T('REV CUT') : T('OB CUT'), C.warn]);
     ctx.font = '700 9.5px Inter, sans-serif';
     tags.slice(0, 2).forEach((tg, i) => {
       const y = 142 + i * 16;
@@ -424,12 +425,13 @@
 
   // Describe what's happening at this crank angle, for the "now" box
   EngineView.prototype.describe = function (S, theta) {
-    if (!S.ecuOn) return 'Key OFF — the ECU is asleep. Turn the key to <b>ON</b>.';
+    const tag = (bg, fg, text, v) => `<span class="tag" style="background:${bg};color:${fg}">${T(text, v)}</span> `;
+    if (!S.ecuOn) return T('Key OFF — the ECU is asleep. Turn the key to <b>ON</b>.');
     if (S.rpm < 5) {
-      if (S.primeT > 0) return '<span class="tag" style="background:#3a2a0a;color:#ffc043">PRIME</span> Fuel pump running for 2 s to pressurise the rail. All warning lamps lit for the bulb check.';
-      return 'ECU awake, engine stopped. Oil and battery lamps on (no oil pressure, no charging). Press <b>START</b>.';
+      if (S.primeT > 0) return tag('#3a2a0a', '#ffc043', 'PRIME') + T('Fuel pump running for 2 s to pressurise the rail. All warning lamps lit for the bulb check.');
+      return T('ECU awake, engine stopped. Oil and battery lamps on (no oil pressure, no charging). Press <b>START</b>.');
     }
-    if (S.sync === 0) return '<span class="tag" style="background:#3a2a0a;color:#ffc043">CRANKING</span> Starter spins the engine. The ECU counts CKP teeth, waiting for the <b>missing-tooth gap</b> — no fuel or spark until it knows the crank position.';
+    if (S.sync === 0) return tag('#3a2a0a', '#ffc043', 'CRANKING') + T('Starter spins the engine. The ECU counts CKP teeth, waiting for the <b>missing-tooth gap</b> — no fuel or spark until it knows the crank position.');
     const items = [];
     for (let c = 0; c < 4; c++) {
       const L = ECU.localAngle(theta, c);
@@ -437,20 +439,22 @@
       const Ls = (720 - adv + 720) % 720;
       const since = (L - Ls + 720) % 720;
       const cs = this.cylState(S, c);
-      if (cs.spark && since < 25) items.push({ p: 3, t: `<span class="tag" style="background:#3a340a;color:#ffe45c">IGN ${c + 1}</span> Coil ${c + 1} fires at <b>${adv.toFixed(1)}° BTDC</b> — spark starts combustion early so peak pressure lands ~15° after TDC.` });
-      if (cs.burn && L > 5 && L < 60) items.push({ p: 2, t: `<span class="tag" style="background:#3a1a0a;color:#ff7a3d">POWER ${c + 1}</span> Burning gas pushes piston ${c + 1} down. The knock sensor is listening to cylinder ${c + 1} right now (knock window).` });
+      const n = c + 1;
+      if (cs.spark && since < 25) items.push({ p: 3, t: tag('#3a340a', '#ffe45c', 'IGN {c}', { c: n }) + T('Coil {c} fires at <b>{a}° BTDC</b> — spark starts combustion early so peak pressure lands ~15° after TDC.', { c: n, a: adv.toFixed(1) }) });
+      if (cs.burn && L > 5 && L < 60) items.push({ p: 2, t: tag('#3a1a0a', '#ff7a3d', 'POWER {c}', { c: n }) + T('Burning gas pushes piston {c} down. The knock sensor is listening to cylinder {c} right now (knock window).', { c: n }) });
       const pwDeg = S.pw * S.rpm * 6 / 1000;
       const soi = (S.eoi - pwDeg + 720) % 720;
-      if (cs.fuel && ((L - soi + 720) % 720) < pwDeg) items.push({ p: 2.5, t: `<span class="tag" style="background:#3a2a0a;color:#ffb020">INJ ${c + 1}</span> Injector ${c + 1} open ${S.pw.toFixed(2)} ms (${pwDeg.toFixed(0)}° of crank) — ${S.fuelMg.toFixed(1)} mg sprayed onto the closed intake valve${S.batch ? ' (batch mode: paired with its partner cylinder)' : ''}.` });
-      if (L > 348 && L < 372) items.push({ p: 1, t: `<span class="tag" style="background:#0a2a3a;color:#3fc6ff">OVERLAP ${c + 1}</span> Cylinder ${c + 1} at exhaust TDC — both valves slightly open. The exiting exhaust helps pull fresh charge in.` });
-      if (L > 540 && L < 560) items.push({ p: 1, t: `<span class="tag" style="background:#2a1a3a;color:#b98cff">COMP ${c + 1}</span> Intake valve ${c + 1} closes — the trapped air mass is what MAF/MAP predicted. Compression begins.` });
+      if (cs.fuel && ((L - soi + 720) % 720) < pwDeg) items.push({ p: 2.5, t: tag('#3a2a0a', '#ffb020', 'INJ {c}', { c: n }) + T('Injector {c} open {pw} ms ({deg}° of crank) — {mg} mg sprayed onto the closed intake valve', { c: n, pw: S.pw.toFixed(2), deg: pwDeg.toFixed(0), mg: S.fuelMg.toFixed(1) }) + (S.batch ? T(' (batch mode: paired with its partner cylinder)') : '') + '.' });
+      if (L > 348 && L < 372) items.push({ p: 1, t: tag('#0a2a3a', '#3fc6ff', 'OVERLAP {c}', { c: n }) + T('Cylinder {c} at exhaust TDC — both valves slightly open. The exiting exhaust helps pull fresh charge in.', { c: n }) });
+      if (L > 540 && L < 560) items.push({ p: 1, t: tag('#2a1a3a', '#b98cff', 'COMP {c}', { c: n }) + T('Intake valve {c} closes — the trapped air mass is what MAF/MAP predicted. Compression begins.', { c: n }) });
     }
     const tooth = ECU.ckpTooth(theta);
-    if (tooth.missing) items.push({ p: 2.8, t: `<span class="tag" style="background:#0a3a2a;color:#2ee6c5">CKP GAP</span> The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & 4.` });
-    if (ECU.cmpSignal(theta, S.vvt) && !S.faults.cmp) items.push({ p: 1.5, t: `<span class="tag" style="background:#2a1a3a;color:#b98cff">CMP</span> Cam tab under the sensor — confirms cylinder 1 is approaching its <b>compression</b> TDC (not exhaust).` });
+    if (tooth.missing) items.push({ p: 2.8, t: tag('#0a3a2a', '#2ee6c5', 'CKP GAP') + T('The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & 4.') });
+    if (ECU.cmpSignal(theta, S.vvt) && !S.faults.cmp) items.push({ p: 1.5, t: tag('#2a1a3a', '#b98cff', 'CMP') + T('Cam tab under the sensor — confirms cylinder 1 is approaching its <b>compression</b> TDC (not exhaust).') });
     items.sort((a, b) => b.p - a.p);
-    return items.length ? items[0].t : `Crank at ${theta.toFixed(0)}° — between events. Tooth #${tooth.idx + 1} under the CKP sensor.`;
+    return items.length ? items[0].t : T('Crank at {a}° — between events. Tooth #{n} under the CKP sensor.', { a: theta.toFixed(0), n: tooth.idx + 1 });
   };
+
 
   ECU.EngineView = EngineView;
 })();
