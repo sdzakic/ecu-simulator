@@ -14,7 +14,7 @@ const missing = new Map();
 const note = (key, where) => { if (key && !(key in HR)) missing.set(key, where); };
 
 // 1) explicit keys: T('..'), ECU.t('..'), log(.., '..'), edge(.., '..'), { k: '..' }, step('..')
-const files = ['sim.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js'];
+const files = ['sim.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js', 'obd.js'];
 const str = `'((?:[^'\\\\]|\\\\.)*)'|"((?:[^"\\\\]|\\\\.)*)"`;
 const patterns = [
   new RegExp(`\\bT\\(\\s*(?:${str})`, 'g'),
@@ -74,7 +74,7 @@ for (const m of html.matchAll(/data-i18n-title[^>]*?title="([^"]*)"/g)) note(m[1
 
 // identifiers that the patterns pick up but are never shown: log kinds, edge() flags, series keys
 const ids = 'ok info warn fault running dfco rev onboost injmax misfire kmh map thr o2 o2dn lam lamT stft ltft spk kr pw duty ect iat egt btgt wg'.split(' ');
-const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge']);
+const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge', '44', '49 02 01 ']);
 const list = [...missing].filter(([k]) => !ignore.has(k));
 if (!list.length) console.log('✓ all translation keys covered');
 else { console.log(`${list.length} missing:`); list.forEach(([k, w]) => console.log(`  [${w}] ${k}`)); process.exitCode = 1; }

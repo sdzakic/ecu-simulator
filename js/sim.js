@@ -165,6 +165,7 @@
       elecW: 0, loadCalc: 0, loadPct: 0, loadSrc: 'MAF', airCylMeas: 0,
       flags: {},
       cal: makeCal(E),
+      freeze: null, distMil: 0, monitors: null, clTime: 0, o2Total: 0,
     };
     if (prev) {
       // carry user inputs across engine switch
@@ -173,6 +174,7 @@
       S.log = prev.log;
       S.logSeq = prev.logSeq;
     }
+    resetMonitors(S);
     return S;
   }
   ECU.createState = createState;
@@ -197,13 +199,31 @@
     S.flags[key] = !!value;
   }
 
+  // OBD readiness monitors: continuous ones (misfire, fuel system checks, components) are always
+  // complete; the others complete once the ECU has actually run the test since codes were cleared.
+  function resetMonitors(S) {
+    S.monitors = { misfire: true, comp: true, fuel: false, cat: false, o2: false, o2heater: false };
+    S.clTime = 0;
+    S.o2Total = 0;
+  }
+  ECU.resetMonitors = resetMonitors;
+
   function setDTC(S, code, mil) {
     if (S.dtc[code]) return;
     S.dtc[code] = { code, text: ECU.DTC_TEXT[code] || '', t: S.t, mil: mil !== false };
+    // OBD mode 02: snapshot of the operating conditions when the first code is stored
+    if (!S.freeze) {
+      const sens = S.sens;
+      S.freeze = { code, rpm: sens.rpm || 0, load: S.loadPct, ect: sens.ect, iat: sens.iat, map: sens.map, maf: sens.maf, vss: S.v * 3.6,
+        stft: S.stft, ltft: S.ltft, spark: S.spark, throttle: S.throttle, closedLoop: S.closedLoop, fuelCut: !!S.fuelCutAll, t: S.t };
+    }
     log(S, mil !== false ? 'DTC {code} stored — {text} · MIL on' : 'DTC {code} stored — {text}', 'fault', { code, text: { k: ECU.DTC_TEXT[code] || '' } });
   }
   ECU.clearDTC = function (S) {
     S.dtc = {};
+    S.freeze = null;
+    S.distMil = 0;
+    resetMonitors(S); // non-continuous monitors must run again before the car is ready for inspection
     S.o2Dead = false;
     S.injCut = [false, false, false, false];
     S.misfireAcc = 0;
@@ -768,6 +788,8 @@
       if (rich !== S.o2Rich) {
         S.stft += rich ? -0.025 : 0.025; // proportional jump
         S.o2Switches.push(S.t);
+        S.o2Total++;
+        if (S.o2Total >= 20) S.monitors.o2 = true; // O2 response monitor: enough clean switches seen
       }
       S.o2Rich = rich;
       S.stft += (rich ? -0.07 : 0.07) * dt; // integral ramp
@@ -783,6 +805,7 @@
       if (dnR !== S.lastDnRich) S.catMon.dn++;
       S.lastUpRich = upR; S.lastDnRich = dnR;
       if (S.catMon.up > 40) {
+        S.monitors.cat = true; // catalyst monitor has run
         if (S.catMon.dn / S.catMon.up > 0.5) { setDTC(S, 'P0420'); }
         S.catMon.up = 0; S.catMon.dn = 0;
       }
@@ -791,6 +814,10 @@
     }
     while (S.o2Switches.length && S.o2Switches[0] < S.t - 4) S.o2Switches.shift();
     S.o2Freq = S.o2Switches.length / 8;
+
+    if (S.closedLoop) { S.clTime += dt; if (S.clTime > 10) S.monitors.fuel = true; }
+    if (S.running && S.o2Temp > 350) S.monitors.o2heater = true;
+    if (Object.values(S.dtc).some((d) => d.mil)) S.distMil += (S.v * dt) / 1000;
 
     const trim = S.stft + S.ltft;
     if (trim > 0.22 && S.closedLoop) { S.leanT = (S.leanT || 0) + dt; if (S.leanT > 4) setDTC(S, 'P0171'); } else S.leanT = 0;

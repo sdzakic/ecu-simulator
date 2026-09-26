@@ -39,6 +39,18 @@ Click **🩺 Challenge**, pick a difficulty, and the simulator secretly injects 
 | Medium | 6 | reading them costs 20 points |
 | Hard | all faults | hidden |
 
+## OBD-II scan tool
+
+What a workshop scan tool reads over the diagnostic port, modelled on SAE J1979. Values are the ECU's own view: a dead coolant sensor reads −40 °C here too.
+
+- **Mode 01, live data:** 23 standard PIDs, polled round-robin like a real tool. Click one to see the request, the raw response bytes and the decode formula, e.g. `41 0C 0D 10 → ((A×256)+B)/4 = 836 rpm`.
+- **Readiness (PID 01/03):** MIL status, code count, fuel system status, and the readiness monitors. Catalyst, O2 sensor, O2 heater and fuel system only complete once the ECU has actually run the test; clearing codes resets them, which is why a car can't pass inspection right after codes are cleared.
+- **Mode 02, freeze frame:** the conditions captured when the first code was stored.
+- **Mode 03/04:** read codes (two-byte SAE J2012 encoding shown) and clear them.
+- **Mode 09:** VIN, calibration ID, protocol.
+
+A CAN traffic log shows every request and response. In the diagnostic challenge the tool respects the difficulty: codes are locked on hard and cost points on medium.
+
 ## Calibration maps
 
 The ECU runs on real lookup tables: **spark advance** and **target λ** (rpm × load), plus **boost target** (rpm × pedal) on the turbo. A white dot tracks the live operating point, and the four cells it interpolates between light up. Drag across cells to select them, then edit with the buttons or the keyboard (+/−, PgUp/PgDn, arrows, Delete). Edits take effect immediately and are saved per engine in the browser. Lessons always run on the stock maps.
@@ -61,6 +73,15 @@ Croatian is the default; switch with **HR / EN** in the top-right corner (the ch
 - `js/ui.js` handles the DOM panels and controls. `js/main.js` runs the loop.
 
 Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % / 5 % / 20 % / Real) so you can follow each event. Pause with `P` and drag across the timing scope to scrub the crank angle.
+
+## Roadmap
+
+Ideas not built yet:
+
+- **Diesel engine, 2.0 TDI-style:** common-rail injection with pilot/main/post injections and rail-pressure control, variable-geometry turbo, glow plugs, lean operation without a throttle (torque by fuel quantity), **EGR** (valve, cooler, effect on NOx and soot), **DPF** (soot loading from differential pressure, passive/active regeneration with post-injection and exhaust temperatures), and diesel faults/lessons (clogged DPF, stuck EGR valve, leaking injector, glow plug failure).
+- **Time-based oscilloscope:** probe any two signals on a millisecond axis, like a Picoscope.
+- **Data logger:** record a drive, replay it and export CSV.
+- **More petrol variants:** direct injection with a high-pressure pump, EVAP purge, wideband upstream O2, V6 with two banks.
 
 ## Tests
 

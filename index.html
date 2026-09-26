@@ -211,6 +211,22 @@
       </div>
     </section>
 
+    <!-- ============ OBD-II SCAN TOOL ============ -->
+    <section class="panel scan">
+      <div class="panel-h">
+        <h2><span data-i18n>OBD-II scan tool</span> <span class="sub" data-i18n>what a workshop scan tool reads over the diagnostic port · click a PID to decode it</span></h2>
+        <div class="seg small" id="scanTabs"></div>
+      </div>
+      <div class="scan-grid">
+        <div class="scan-body" id="scanBody"></div>
+        <div class="scan-side">
+          <div class="scan-decode" id="scanDecode"></div>
+          <div class="scan-term-h" data-i18n>CAN bus traffic (request → response)</div>
+          <div class="scan-term mono" id="scanTerm"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ DIAGRAM ============ -->
     <section class="panel diagram">
       <div class="panel-h">
@@ -328,6 +344,7 @@
   <script src="js/lessons.js"></script>
   <script src="js/challenge.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/obd.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
