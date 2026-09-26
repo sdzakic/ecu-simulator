@@ -115,20 +115,36 @@ kbd {
 #pauseBtn.paused { background: #2d2410; border-color: var(--warn); color: var(--warn); }
 
 /* ================= LAYOUT ================= */
+/* Shell = [sidebar | content]. The sidebar owns a full-height column, so its sticky
+   panel travels the whole page without ever sliding over content cells. */
+.shell {
+  display: grid; column-gap: 14px; padding: 14px 18px 8px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+  transition: grid-template-columns .3s ease, column-gap .3s ease;
+}
+.controls { transition: opacity .2s ease, transform .3s ease; }
+body.controls-collapsed .shell { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
+body.controls-collapsed .controls { padding-left: 0; padding-right: 0; border-width: 0; overflow: hidden; opacity: 0; transform: translateX(-24px); pointer-events: none; visibility: hidden; transition: opacity .2s ease, transform .3s ease, visibility 0s .3s; }
+.panel-toggle svg { fill: none; width: 18px; height: 18px; }
+.panel-toggle.active { color: var(--accent); border-color: rgba(46, 230, 197, .45); }
+.panel-toggle .pt-fill { fill: currentColor; opacity: .55; transition: opacity .2s; }
+body.controls-collapsed .panel-toggle .pt-fill { opacity: 0; }
+.collapse-btn { font-size: 15px; line-height: 1; padding: 3px 9px; }
+
 .layout {
-  display: grid; gap: 14px; padding: 14px 18px 8px;
-  grid-template-columns: 300px minmax(0, 1fr) 350px;
+  display: grid; gap: 14px; min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 350px;
   grid-template-areas:
-    "controls cluster sensors"
-    "controls engine sensors"
-    "controls wheels sensors"
-    "scope scope scope"
-    "diagram diagram brain"
-    "trends trends log"
-    "actuators actuators actuators";
+    "cluster sensors"
+    "engine sensors"
+    "wheels sensors"
+    "scope scope"
+    "diagram brain"
+    "trends log"
+    "actuators actuators";
   align-items: start;
 }
-.controls { grid-area: controls; }
 .cluster { grid-area: cluster; }
 .engine { grid-area: engine; }
 .wheels { grid-area: wheels; }
@@ -141,19 +157,10 @@ kbd {
 .actuators { grid-area: actuators; }
 
 @media (max-width: 1320px) {
+  .shell { grid-template-columns: 290px minmax(0, 1fr); }
   .layout {
-    grid-template-columns: 290px minmax(0, 1fr);
-    grid-template-areas:
-      "controls cluster"
-      "controls engine"
-      "controls wheels"
-      "sensors sensors"
-      "scope scope"
-      "diagram diagram"
-      "brain brain"
-      "trends trends"
-      "log log"
-      "actuators actuators";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "cluster" "engine" "wheels" "sensors" "scope" "diagram" "brain" "trends" "log" "actuators";
   }
   .sensor-list { max-height: none !important; columns: 2; column-gap: 12px; }
 }
@@ -162,10 +169,9 @@ kbd {
   .engine-seg button { min-width: 0; }
   .speed-wrap .lbl { display: none; }
   .top-right { flex-wrap: wrap; }
-  .layout {
-    padding: 12px 16px; grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "cluster" "controls" "engine" "wheels" "sensors" "scope" "diagram" "brain" "trends" "log" "actuators";
-  }
+  .shell { padding: 12px 16px; grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
+  body.controls-collapsed .shell { grid-template-columns: minmax(0, 1fr); }
+  body.controls-collapsed .controls { display: none; }
   .sensor-list { columns: 1; }
   .controls { position: static !important; max-height: none !important; }
 }

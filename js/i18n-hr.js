@@ -18,6 +18,9 @@
     'Pause': 'Pauza',
     'Resume': 'Nastavi',
     'How to use': 'Upute',
+    'Hide controls': 'Sakrij kontrole',
+    'Hide controls (C)': 'Sakrij kontrole (C)',
+    'Show controls (C)': 'Prikaži kontrole (C)',
     'Driver & test bench': 'Vozač i ispitni stol',
     'Ignition': 'Paljenje',
     'OFF': 'ISKLJ',
@@ -73,8 +76,8 @@
     'How to use the simulator': 'Kako koristiti simulator',
     '<li><b>Start:</b> click <em>⚡ Start engine</em> (or turn the key to ON, wait for the bulb check and fuel pump prime, then START). Watch the CKP gap and the cam pulse bring the ECU into sync.</li>\n        <li><b>Watch it warm up:</b> cold-start enrichment, high idle and retarded spark for catalyst heating fade away. At 35 °C the ECU enters <em>closed loop</em> — the O2 sensor starts switching.</li>\n        <li><b>Drive:</b> pick a gear, press the pedal (hold <kbd>W</kbd>), brake with <kbd>Space</kbd>. Try WOT for power enrichment, release above 1700 rpm for decel fuel cut, hit the rev limiter.</li>\n        <li><b>Turbo:</b> switch engine type. See turbo lag, wastegate control, the blow-off valve, charge-air cooling and knock-limited spark.</li>\n        <li><b>Break things:</b> inject faults on the left and see how the ECU detects them, stores DTCs and falls back to backup strategies.</li>\n        <li><b>Slow-mo:</b> the crank-angle views run slowed down so you can follow each injection and spark. Pause (<kbd>P</kbd>) and drag across the timing scope to scrub the crank.</li>':
       '<li><b>Paljenje:</b> kliknite <em>⚡ Upali motor</em> (ili okrenite ključ na UKLJ, pričekajte provjeru žaruljica i punjenje pumpe goriva, pa START). Pratite kako praznina na CKP kotaču i impuls bregastog vratila sinkroniziraju ECU.</li>\n        <li><b>Zagrijavanje:</b> obogaćivanje za hladan start, povišeni prazni hod i kasnije paljenje za zagrijavanje katalizatora postupno nestaju. Na 35 °C ECU prelazi u <em>zatvorenu petlju</em> — lambda sonda počinje prebacivati.</li>\n        <li><b>Vožnja:</b> odaberite brzinu, pritisnite papučicu (držite <kbd>W</kbd>), kočite <kbd>razmakom</kbd>. Probajte pun gas za obogaćivanje snage, pustite gas iznad 1700 o/min za prekid goriva pri kočenju motorom, udarite u graničnik okretaja.</li>\n        <li><b>Turbo:</b> promijenite vrstu motora. Vidjet ćete turbo rupu, regulaciju wastegatea, blow-off ventil, hlađenje stlačenog zraka i paljenje ograničeno detonacijom.</li>\n        <li><b>Kvarovi:</b> uključite kvarove s lijeve strane i gledajte kako ih ECU otkriva, sprema kodove grešaka i prelazi na rezervne strategije.</li>\n        <li><b>Usporeno:</b> prikazi po kutu radilice su usporeni kako biste pratili svako ubrizgavanje i iskru. Pauzirajte (<kbd>P</kbd>) i povucite preko vremenskog dijagrama da pomičete radilicu.</li>',
-    'Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause':
-      'Tipkovnica: <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>Razmak</kbd> kočnica · <kbd>0</kbd>–<kbd>5</kbd> brzina · <kbd>S</kbd> start · <kbd>P</kbd> pauza',
+    'Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause · <kbd>C</kbd> controls':
+      'Tipkovnica: <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>Razmak</kbd> kočnica · <kbd>0</kbd>–<kbd>5</kbd> brzina · <kbd>S</kbd> start · <kbd>P</kbd> pauza · <kbd>C</kbd> kontrole',
 
     // ---------- event log (sim) ----------
     'DTC {code} stored — {text} · MIL on': 'Kod greške {code} spremljen — {text} · MIL lampica upaljena',

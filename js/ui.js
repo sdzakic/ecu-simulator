@@ -246,6 +246,7 @@
   // language switched: rebuild everything that holds translated text
   UI.prototype.relabel = function () {
     this.buildAll();
+    this.setControlsCollapsed(document.body.classList.contains('controls-collapsed'), true);
     $('#logList').innerHTML = '';
     this.lastLogId = 0;
     this.dtcSig = null; // force the DTC list/counter to re-render (empty list included)
@@ -603,6 +604,11 @@
       app.speed = b.dataset.speed === 'auto' ? 'auto' : +b.dataset.speed;
     }));
     $('#pauseBtn').addEventListener('click', () => app.togglePause());
+    $('#panelToggle').addEventListener('click', () => this.setControlsCollapsed(!document.body.classList.contains('controls-collapsed')));
+    $('#panelCollapse').addEventListener('click', () => this.setControlsCollapsed(true));
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('ecu-controls-collapsed') === '1'; } catch (e) { /* storage unavailable */ }
+    this.setControlsCollapsed(collapsed, true);
     $('#helpBtn').addEventListener('click', () => $('#helpModal').classList.add('open'));
     $('#helpModal').addEventListener('click', (e) => { if (e.target.id === 'helpModal' || e.target.hasAttribute('data-close')) $('#helpModal').classList.remove('open'); });
     $('#drawerClose').addEventListener('click', () => this.closeDrawer());
@@ -661,6 +667,7 @@
       else if (/^[0-5]$/.test(e.key)) S().gear = +e.key;
       else if (k === 's') app.quickStart();
       else if (k === 'p') app.togglePause();
+      else if (k === 'c') this.setControlsCollapsed(!document.body.classList.contains('controls-collapsed'));
       else if (e.key === 'Escape') { this.closeDrawer(); $('#helpModal').classList.remove('open'); }
     });
     window.addEventListener('keyup', (e) => {
@@ -690,6 +697,17 @@
       if (app.paused && p.x > app.scope.x0) { drag = true; app.theta = app.scope.angleAt(p.x); }
     });
     window.addEventListener('pointerup', () => (drag = false));
+  };
+
+  // left control panel show/hide (remembered per browser)
+  UI.prototype.setControlsCollapsed = function (collapsed, initial) {
+    document.body.classList.toggle('controls-collapsed', collapsed);
+    const btn = $('#panelToggle');
+    btn.classList.toggle('active', !collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    btn.title = T(collapsed ? 'Show controls (C)' : 'Hide controls (C)');
+    $('#controls').setAttribute('aria-hidden', String(collapsed));
+    if (!initial) { try { localStorage.setItem('ecu-controls-collapsed', collapsed ? '1' : '0'); } catch (e) { /* ignore */ } }
   };
 
   function describeAngle(a) {
