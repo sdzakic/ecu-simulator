@@ -17,6 +17,10 @@ Open `index.html` in a browser. There is no build step and nothing to install. Y
 | Sensors (26) | Value, electrical signal (volts / Hz / Ω) and status for each; click one for a full explanation |
 | Actuators, live data, event log | ECU outputs, 30 s trends, narrated event log and stored DTCs |
 
+## Phones
+
+On narrow screens the controls become a slide-in drawer (panel button, top left), and a floating pad at the bottom gives you hold-to-accelerate gas, brake, gear ‹ › and a start button, so you can drive while watching the gauges.
+
 ## Guided lessons
 
 Click **🎓 Lessons** in the top bar. Each lesson drives the simulator, highlights the relevant panel and explains what's happening, waiting for the right moment before moving on: cold start and sync, closed loop and fuel trims, knock, turbo lag and boost control, decel fuel cut and the rev limiter, and misfire detection. Lessons live in `js/lessons.js` with English and Croatian text side by side.
@@ -40,8 +44,16 @@ Croatian is the default; switch with **HR / EN** in the top-right corner (the ch
 
 Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % / 5 % / 20 % / Real) so you can follow each event. Pause with `P` and drag across the timing scope to scrub the crank angle.
 
+## Tests
+
+```
+npm test
+```
+
+Runs the headless test suite with Node's built-in test runner; no dependencies needed. It covers the engine physics (start, idle, closed loop, full throttle, boost, rev limiter, knock), every fault and the DTC it should set, the calibration maps, all six lessons (driven through a stub app) and translation coverage.
+
 ## Deploying to GitHub Pages
 
-`.github/workflows/deploy-pages.yml` runs on every push to `main`. It checks translation coverage, then publishes `index.html`, `css/` and `js/` to GitHub Pages. No build step is needed; all paths are relative, so the site works under `https://<user>.github.io/<repo>/`.
+`.github/workflows/ci.yml` runs the tests on every push and pull request. On `main`, once the tests pass, it publishes `index.html`, `css/` and `js/` to GitHub Pages. No build step is needed; all paths are relative.
 
 One-time setup: in the repo go to Settings → Pages → Build and deployment and set Source to **GitHub Actions**.

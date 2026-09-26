@@ -19,6 +19,7 @@
     'Resume': 'Nastavi',
     'How to use': 'Upute',
     'Lessons': 'Lekcije',
+    'Gas': 'Gas',
     'Guided lessons': 'Vođene lekcije',
     'Each lesson drives the simulator for you and pauses to explain. You can still use every control.': 'Svaka lekcija sama upravlja simulatorom i zastaje da objasni. I dalje možete koristiti sve kontrole.',
     'Lesson': 'Lekcija',

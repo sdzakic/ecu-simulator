@@ -218,6 +218,7 @@
     this.lesson.setup(this.app);
     this.card.classList.add('open');
     this.card.classList.remove('min');
+    document.body.classList.add('lesson-open');
     this.enter(0);
   };
 
@@ -226,6 +227,7 @@
     if (this.app.stockMode) this.app.useStockCal(false); // back to the user's own maps
     this.lesson = null;
     this.card.classList.remove('open');
+    document.body.classList.remove('lesson-open');
   };
 
   Lessons.prototype.enter = function (i) {
@@ -258,8 +260,9 @@
     this.focused.forEach((el) => el.classList.add('lesson-focus'));
     const first = this.focused[0];
     if (first) {
-      // open the side panel if the target lives in it
-      if (first.closest('#controls') && document.body.classList.contains('controls-collapsed')) this.app.ui.setControlsCollapsed(false);
+      // open the side panel / phone drawer if the target lives in it
+      if (first.closest('#controls')) this.app.ui.showControls();
+      else this.app.ui.setDrawer(false);
       const r = first.getBoundingClientRect();
       if (r.top < 70 || r.bottom > window.innerHeight - 40) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }

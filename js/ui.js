@@ -400,6 +400,9 @@
     $('#brakeBtn').classList.toggle('active', S.brake);
     this.setRange($('#pedal'), S.pedal);
     $('#pedalVal').textContent = `${S.pedal.toFixed(0)} %`;
+    $('#tpPedal').textContent = `${S.pedal.toFixed(0)} %`;
+    $('#tpGear').textContent = S.gear === 0 ? 'N' : String(S.gear);
+    $('#tpStart').hidden = S.running || S.cranking;
 
     // sync pill
     const sp = $('#syncPill');
@@ -619,11 +622,14 @@
       app.speed = b.dataset.speed === 'auto' ? 'auto' : +b.dataset.speed;
     }));
     $('#pauseBtn').addEventListener('click', () => app.togglePause());
-    $('#panelToggle').addEventListener('click', () => this.setControlsCollapsed(!document.body.classList.contains('controls-collapsed')));
-    $('#panelCollapse').addEventListener('click', () => this.setControlsCollapsed(true));
+    $('#panelToggle').addEventListener('click', () => this.toggleControls());
+    $('#panelCollapse').addEventListener('click', () => (this.isPhone() ? this.setDrawer(false) : this.setControlsCollapsed(true)));
+    $('#drawerBackdrop').addEventListener('click', () => this.setDrawer(false));
+    this.bindTouchPad();
     let collapsed = false;
     try { collapsed = localStorage.getItem('ecu-controls-collapsed') === '1'; } catch (e) { /* storage unavailable */ }
     this.setControlsCollapsed(collapsed, true);
+    if (this.isPhone()) this.setDrawer(false);
     $('#helpBtn').addEventListener('click', () => $('#helpModal').classList.add('open'));
     $('#helpModal').addEventListener('click', (e) => { if (e.target.id === 'helpModal' || e.target.hasAttribute('data-close')) $('#helpModal').classList.remove('open'); });
     $('#drawerClose').addEventListener('click', () => this.closeDrawer());
@@ -682,8 +688,8 @@
       else if (/^[0-5]$/.test(e.key)) S().gear = +e.key;
       else if (k === 's') app.quickStart();
       else if (k === 'p') app.togglePause();
-      else if (k === 'c') this.setControlsCollapsed(!document.body.classList.contains('controls-collapsed'));
-      else if (e.key === 'Escape') { this.closeDrawer(); $('#helpModal').classList.remove('open'); }
+      else if (k === 'c') this.toggleControls();
+      else if (e.key === 'Escape') { this.closeDrawer(); this.setDrawer(false); $('#helpModal').classList.remove('open'); }
     });
     window.addEventListener('keyup', (e) => {
       const k = e.key.toLowerCase();
@@ -712,6 +718,46 @@
       if (app.paused && p.x > app.scope.x0) { drag = true; app.theta = app.scope.angleAt(p.x); }
     });
     window.addEventListener('pointerup', () => (drag = false));
+  };
+
+  // phones: the controls are an off-canvas drawer; desktop: a collapsible column
+  UI.prototype.isPhone = function () { return window.matchMedia('(max-width: 860px)').matches; };
+  UI.prototype.toggleControls = function () {
+    if (this.isPhone()) this.setDrawer(!document.body.classList.contains('drawer-open'));
+    else this.setControlsCollapsed(!document.body.classList.contains('controls-collapsed'));
+  };
+  UI.prototype.showControls = function () {
+    if (this.isPhone()) this.setDrawer(true);
+    else if (document.body.classList.contains('controls-collapsed')) this.setControlsCollapsed(false);
+  };
+  UI.prototype.setDrawer = function (open) {
+    document.body.classList.toggle('drawer-open', open);
+    if (this.isPhone()) {
+      $('#panelToggle').setAttribute('aria-expanded', String(open));
+      $('#panelToggle').classList.toggle('active', open);
+    }
+  };
+
+  // floating gas / brake / gear / start pad for touch screens
+  UI.prototype.bindTouchPad = function () {
+    const app = this.app;
+    const hold = (el, on, off) => {
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        el.classList.add('active');
+        on();
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* capture is best-effort; the press still works */ }
+      });
+      const end = () => { if (!el.classList.contains('active')) return; el.classList.remove('active'); off(); };
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => el.addEventListener(ev, end));
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    };
+    hold($('#tpGas'), () => (app.wHeld = true), () => { app.wHeld = false; app.S.pedal = app.pedalBase; });
+    hold($('#tpBrake'), () => (app.S.brake = true), () => (app.S.brake = false));
+    $('#tpStart').addEventListener('click', () => app.quickStart());
+    document.querySelectorAll('[data-gstep]').forEach((b) => b.addEventListener('click', () => {
+      app.S.gear = Math.max(0, Math.min(5, app.S.gear + +b.dataset.gstep));
+    }));
   };
 
   // left control panel show/hide (remembered per browser)

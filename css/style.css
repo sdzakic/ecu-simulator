@@ -171,12 +171,47 @@ body.controls-collapsed .panel-toggle .pt-fill { opacity: 0; }
   .engine-seg button { min-width: 0; }
   .speed-wrap .lbl { display: none; }
   .top-right { flex-wrap: wrap; }
-  .shell { padding: 12px 16px; grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
-  body.controls-collapsed .shell { grid-template-columns: minmax(0, 1fr); }
-  body.controls-collapsed .controls { display: none; }
+  .shell, body.controls-collapsed .shell { padding: 12px 16px; grid-template-columns: minmax(0, 1fr); column-gap: 0; }
   .sensor-list { columns: 1; }
-  .controls { position: static !important; max-height: none !important; }
+  /* controls become an off-canvas drawer (desktop collapse state doesn't apply here) */
+  .controls, body.controls-collapsed .controls {
+    position: fixed !important; top: 0; left: 0; bottom: 0; z-index: 48; width: min(330px, 88vw); max-height: none !important;
+    border-radius: 0 16px 16px 0; padding: 14px; border-width: 1px; opacity: 1; visibility: visible; pointer-events: auto; overflow-y: auto;
+    transform: translateX(-105%); transition: transform .3s cubic-bezier(.2, .9, .3, 1);
+    box-shadow: 20px 0 60px rgba(0, 0, 0, .5);
+  }
+  body.drawer-open .controls { transform: none; }
+  body.drawer-open .drawer-backdrop { display: block; }
+  body.drawer-open .touch-pad { display: none; }
+  body { padding-bottom: 104px; }
+  body.lesson-open .touch-pad { display: none; }
 }
+.drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 47; background: rgba(3, 6, 10, .6); backdrop-filter: blur(3px); }
+
+/* ---------- floating touch driving controls (phones) ---------- */
+@media (min-width: 861px) { .touch-pad { display: none !important; } }
+.touch-pad {
+  display: flex; position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 44; gap: 8px; align-items: stretch;
+  padding: 8px; border-radius: 18px; background: rgba(10, 16, 24, .92); border: 1px solid var(--line2); backdrop-filter: blur(10px);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
+}
+.tp-btn {
+  border: 1px solid var(--line2); background: var(--panel2); color: var(--text); border-radius: 12px; font-weight: 800; cursor: pointer;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.tp-brake { flex: 1; font-size: 13px; }
+.tp-brake.active { background: #3a1419; border-color: var(--bad); color: #ffd2d6; box-shadow: 0 0 16px rgba(255, 77, 94, .35); }
+.tp-gas { flex: 1.4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 15px; min-height: 72px;
+  background: linear-gradient(180deg, #15352c, #0f241e); border-color: #1f5a4a; }
+.tp-gas small { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 600; }
+.tp-gas.active { background: linear-gradient(180deg, #1ec7a0, #0f9f80); color: #03140f; border-color: #1fe3b6; box-shadow: 0 0 20px rgba(46, 230, 197, .4); }
+.tp-gas.active small { color: #06261d; }
+.tp-mid { flex: 1.2; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.tp-start { padding: 8px 6px; font-size: 12px; background: linear-gradient(180deg, #16c79f, #0f9f80); color: #03140f; border-color: #1fe3b6; }
+.tp-start[hidden] { display: none; }
+.tp-gear { display: flex; align-items: center; gap: 6px; }
+.tp-gear .tp-btn { flex: 1; padding: 8px 0; font-size: 18px; line-height: 1; }
+.tp-gear b { font-family: var(--mono); font-size: 20px; min-width: 26px; text-align: center; }
 
 .panel {
   background: linear-gradient(180deg, rgba(19, 28, 40, 0.92), rgba(13, 20, 29, 0.92));

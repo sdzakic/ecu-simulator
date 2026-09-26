@@ -1,0 +1,9 @@
+{
+  "name": "ecu-simulator",
+  "private": true,
+  "description": "Interactive car ECU simulator — plain HTML/JS, no build step",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "check:i18n": "node scripts/check-i18n.mjs"
+  }
+}

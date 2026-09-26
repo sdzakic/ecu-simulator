@@ -246,6 +246,17 @@
     <div id="drawerBody"></div>
   </div>
 
+  <!-- Phone: drawer backdrop + floating driving controls -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <div class="touch-pad" id="touchPad" role="group" aria-label="Driving controls">
+    <button class="tp-btn tp-brake" id="tpBrake"><span data-i18n>Brake</span></button>
+    <div class="tp-mid">
+      <button class="tp-btn tp-start" id="tpStart" data-i18n>⚡ Start engine</button>
+      <div class="tp-gear"><button class="tp-btn" data-gstep="-1" aria-label="Gear down">‹</button><b id="tpGear">N</b><button class="tp-btn" data-gstep="1" aria-label="Gear up">›</button></div>
+    </div>
+    <button class="tp-btn tp-gas" id="tpGas"><span data-i18n>Gas</span><small id="tpPedal">0 %</small></button>
+  </div>
+
   <!-- Lesson coach card + picker -->
   <div class="coach" id="coach" role="dialog" aria-live="polite"></div>
   <div class="modal" id="lessonModal" aria-hidden="true">
