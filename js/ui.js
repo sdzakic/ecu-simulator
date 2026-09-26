@@ -21,7 +21,7 @@
         const rpm = F.ckp ? 0 : S.rpm;
         const hz = (rpm / 60) * 58;
         r.value = f0(rpm); r.unit = 'rpm'; r.short = `${f0(rpm)} rpm`;
-        r.sig = F.ckp ? T('open circuit') : S.ckpType === 'vr' ? `±${f1(Math.max(0.2, S.rpm / 450))} V · ${f0(hz)} Hz` : `0/5 V · ${f0(hz)} Hz`;
+        r.sig = F.ckp ? (ECU.hideTruth ? '0 Hz' : T('open circuit')) : S.ckpType === 'vr' ? `±${f1(Math.max(0.2, S.rpm / 450))} V · ${f0(hz)} Hz` : `0/5 V · ${f0(hz)} Hz`;
         r.status = F.ckp ? 'bad' : run ? 'live' : on ? 'ok' : 'off';
         r.frac = rpm / 8000;
         break;
@@ -37,7 +37,7 @@
       case 'maf': {
         const v = F.maf ? 0 : S.mafTrue;
         r.value = f1(v); r.unit = 'g/s'; r.short = `${f1(v)} g/s`;
-        r.sig = F.maf ? T('0.00 V (fault)') : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
+        r.sig = F.maf ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
         r.status = F.maf ? 'bad' : on ? 'ok' : 'off';
         r.frac = v / (S.E.turbo ? 230 : 130);
         break;
@@ -46,7 +46,7 @@
         const v = F.map ? 0 : S.map;
         const range = S.E.turbo ? 300 : 105;
         r.value = f0(v); r.unit = 'kPa'; r.short = `${f0(v)} kPa`;
-        r.sig = F.map ? T('0.00 V (fault)') : `${f2(0.5 + (4 * v) / range)} V`;
+        r.sig = F.map ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.5 + (4 * v) / range)} V`;
         r.status = F.map ? 'bad' : on ? 'ok' : 'off';
         r.frac = v / range;
         break;
@@ -73,7 +73,7 @@
         const v = S.o2v;
         const rl = v > 0.45 ? T('RICH') : T('lean');
         r.value = f2(v); r.unit = 'V'; r.short = `${f2(v)} V`;
-        r.sig = F.o2 ? T('stuck lean') : S.o2Temp < 320 ? T('cold ({t} °C)', { t: f0(S.o2Temp) }) : S.closedLoop ? `${rl} · ${f1(S.o2Freq)} Hz` : rl;
+        r.sig = F.o2 && !ECU.hideTruth ? T('stuck lean') : S.o2Temp < 320 ? T('cold ({t} °C)', { t: f0(S.o2Temp) }) : S.closedLoop ? `${rl} · ${f1(S.o2Freq)} Hz` : rl;
         r.status = F.o2 || S.o2Dead ? 'bad' : !on ? 'off' : S.o2Temp < 320 ? 'warn' : 'ok';
         r.frac = v;
         break;
@@ -81,7 +81,7 @@
       case 'o2dn': {
         const v = S.o2dn;
         r.value = f2(v); r.unit = 'V'; r.short = `${f2(v)} V`;
-        r.sig = F.cat ? T('mirrors upstream!') : S.o2Temp < 320 ? T('cold') : T('cat O₂ store {p} %', { p: f0(S.catOsc * 100) });
+        r.sig = F.cat && !ECU.hideTruth ? T('mirrors upstream!') : S.o2Temp < 320 ? T('cold') : T('cat O₂ store {p} %', { p: f0(S.catOsc * 100) });
         r.status = S.dtc.P0420 ? 'bad' : !on ? 'off' : S.o2Temp < 320 ? 'warn' : 'ok';
         r.frac = v;
         break;
@@ -90,7 +90,7 @@
         const kn = Math.max(...S.knockTrue);
         const mv = F.knocksensor ? 0 : (run ? 40 + S.rpm * 0.05 : 5) + kn * 1400;
         r.value = f0(mv); r.unit = 'mV'; r.short = `${f0(mv)} mV`;
-        r.sig = F.knocksensor ? T('open circuit') : kn > 0.1 ? T('KNOCK detected!') : T('{n} events total', { n: S.knockCount });
+        r.sig = F.knocksensor ? (ECU.hideTruth ? '0 mV' : T('open circuit')) : kn > 0.1 ? T('KNOCK detected!') : T('{n} events total', { n: S.knockCount });
         r.status = F.knocksensor ? 'bad' : S.t - S.lastKnockT < 1 ? 'warn' : on ? 'ok' : 'off';
         r.frac = mv / 1800;
         break;
@@ -102,7 +102,7 @@
       case 'ect': {
         const t = F.ect ? -40 : S.ect;
         r.value = f0(t); r.unit = '°C'; r.short = `${f0(t)} °C`;
-        r.sig = F.ect ? T('4.98 V (open)') : `${f2(ntcVolts(S.ect))} V`;
+        r.sig = F.ect ? (ECU.hideTruth ? '4.98 V' : T('4.98 V (open)')) : `${f2(ntcVolts(S.ect))} V`;
         r.status = F.ect ? 'bad' : !on ? 'off' : S.ect > 110 ? 'bad' : S.ect < 40 ? 'warn' : 'ok';
         r.frac = (t + 40) / 170;
         break;
@@ -110,7 +110,7 @@
       case 'iat': {
         const t = F.iat ? -40 : S.iat;
         r.value = f0(t); r.unit = '°C'; r.short = `${f0(t)} °C`;
-        r.sig = F.iat ? T('4.98 V (open)') : `${f2(ntcVolts(S.iat))} V`;
+        r.sig = F.iat ? (ECU.hideTruth ? '4.98 V' : T('4.98 V (open)')) : `${f2(ntcVolts(S.iat))} V`;
         r.status = F.iat ? 'bad' : on ? 'ok' : 'off';
         r.frac = (t + 40) / 140;
         break;
@@ -168,6 +168,7 @@
         break;
     }
     r.frac = clamp(r.frac || 0, 0, 1);
+    if (ECU.hideTruth && r.status === 'bad') r.status = 'ok'; // a scan tool shows values, not "this one is broken"
     return r;
   }
   ECU.readSensor = readSensor;
@@ -292,6 +293,7 @@
       b.className = 'fault' + (f.turboOnly ? ' turbo-only' : '') + (this.app.S.faults[f.id] ? ' on' : '');
       b.innerHTML = `<span class="sw"></span><span><div class="fn">${ECU.info('faults', f, 'name')}</div><div class="fh">${ECU.info('faults', f, 'hint')}</div></span><span class="fc">${f.dtc}</span>`;
       b.addEventListener('click', () => {
+        if (this.faultsLocked) return;
         const S = this.app.S;
         S.faults[f.id] = !S.faults[f.id];
         b.classList.toggle('on', !!S.faults[f.id]);
@@ -343,7 +345,7 @@
       case 'wg': return { on: S.boostTargetKpa > 5, v: T('duty {d} % · flap {o} % open', { d: ((1 - S.wgCmd) * 100).toFixed(0), o: (S.wgPos * 100).toFixed(0) }), f: 1 - S.wgCmd, c: '#ff9f43' };
       case 'bov': return { on: S.bovT > 0, v: S.bovT > 0 ? T('VENTING') : T('closed'), f: S.bovT > 0 ? 1 : 0, c: '#cfe9ff' };
       case 'o2h': return { on: on && S.rpm > 300, v: T('{s} · element {t} °C', { s: on && S.rpm > 300 ? T('ON') : T('off'), t: S.o2Temp.toFixed(0) }), f: S.o2Temp / 750, c: '#ff6b8a' };
-      case 'alt': return { on: S.rpm > 550 && !S.faults.alt, v: S.faults.alt ? T('FAILED') : S.rpm > 550 ? T('{v} V · {w} W load', { v: S.vbat.toFixed(1), w: S.elecW.toFixed(0) }) : T('not charging'), f: S.elecW / 1000, c: '#62a8ff' };
+      case 'alt': return { on: S.rpm > 550 && !S.faults.alt, v: S.faults.alt && !ECU.hideTruth ? T('FAILED') : S.faults.alt ? T('not charging') : S.rpm > 550 ? T('{v} V · {w} W load', { v: S.vbat.toFixed(1), w: S.elecW.toFixed(0) }) : T('not charging'), f: S.elecW / 1000, c: '#62a8ff' };
       case 'acc': return { on: S.ac && S.running, v: S.ac && S.running ? T('engaged') : S.ac ? T('waiting for engine') : T('off'), f: S.ac && S.running ? 1 : 0, c: '#62a8ff' };
       case 'mil': {
         const m = on && (Object.values(S.dtc).some((d) => d.mil) || S.rpm < 300);
@@ -417,6 +419,13 @@
     return readings;
   };
 
+  // during a diagnostic challenge the fault switches would give the answer away
+  UI.prototype.lockFaults = function (on) {
+    this.faultsLocked = on;
+    $('.ctl.faults').classList.toggle('locked', on);
+    $('.ctl.faults').dataset.lockMsg = T('🔒 Hidden during the diagnostic challenge');
+  };
+
   // reflect programmatic state changes (lessons, engine swap) in the controls
   UI.prototype.syncControls = function () {
     const S = this.app.S;
@@ -424,7 +433,7 @@
     document.querySelectorAll('#ckpSel button').forEach((b) => b.classList.toggle('active', b.dataset.t === S.ckpType));
     $('#acBtn').classList.toggle('on', !!S.ac);
     $('#lightsBtn').classList.toggle('on', !!S.lights);
-    for (const f of ECU.FAULTS) this.faultEls[f.id].classList.toggle('on', !!S.faults[f.id]);
+    for (const f of ECU.FAULTS) this.faultEls[f.id].classList.toggle('on', !this.faultsLocked && !!S.faults[f.id]);
     const pairs = [['#grade', '#gradeVal', S.grade, (v) => `${v} %`], ['#ambient', '#ambVal', S.ambient, (v) => `${v} °C`], ['#boostTgt', '#boostTgtVal', S.boostTarget, (v) => `${(+v).toFixed(2)} bar`]];
     for (const [sel, valSel, v, fmt] of pairs) { const el = $(sel); el.value = v; $(valSel).textContent = fmt(v); this.setRange(el, v); }
   };
@@ -442,19 +451,34 @@
       for (const l of fresh) {
         const el = document.createElement('div');
         el.className = 'lg ' + l.kind;
-        el.innerHTML = `<span class="lt">${l.t.toFixed(1)}s</span><span>${T(l.msg, l.vars)}</span>`;
+        el.innerHTML = `<span class="lt">${l.t.toFixed(1)}s</span><span>${this.logText(l)}</span>`;
         list.prepend(el);
       }
       this.lastLogId = fresh[fresh.length - 1].id;
       while (list.children.length > 80) list.lastChild.remove();
     }
     const codes = Object.values(S.dtc);
-    const sig = codes.map((d) => d.code).join(',');
+    const hidden = this.codesHidden();
+    const sig = codes.map((d) => d.code).join(',') + (hidden ? '|h' : '');
     if (sig !== this.dtcSig) {
       this.dtcSig = sig;
+      if (hidden) {
+        $('#dtcList').innerHTML = codes.length ? `<div class="dtc masked"><b>🔒</b><span>${T('{n} fault code(s) stored — hidden in this challenge', { n: codes.length })}</span></div>` : '';
+        $('#dtcCount').innerHTML = `<span style="color:var(--muted)">${T('codes hidden')}</span>`;
+        return;
+      }
       $('#dtcList').innerHTML = codes.map((d) => `<div class="dtc"><b>${d.code}</b><span>${T(d.text)}</span></div>`).join('');
       $('#dtcCount').innerHTML = codes.length ? `<span style="color:var(--bad)">${T('{n} DTC(s) stored', { n: codes.length })}</span>` : `<span style="color:var(--ok)">${T('no DTCs')}</span>`;
     }
+  };
+
+  UI.prototype.codesHidden = function () { return !!(this.app.challenge && !this.app.challenge.codesVisible()); };
+  // log entries that would reveal a challenge's answer are masked
+  const TRUTH_KEYS = new Set(["Cylinder {c} is knocking — but the knock sensor is dead, the ECU can't hear it!"]);
+  UI.prototype.logText = function (l) {
+    if (ECU.hideTruth && TRUTH_KEYS.has(l.msg)) return T('Something sounds wrong under load…');
+    if (this.codesHidden() && l.msg.startsWith('DTC {code} stored')) return T('A fault code was stored (read it with a scan tool).');
+    return T(l.msg, l.vars);
   };
 
   // ---------- ECU brain ----------
@@ -613,6 +637,10 @@
 
     document.querySelectorAll('#langSel button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== ECU.lang) ECU.setLang(b.dataset.lang); }));
     document.querySelectorAll('#engineSel button').forEach((b) => b.addEventListener('click', () => {
+      if (app.challenge && app.challenge.active()) {
+        if (!window.confirm(T('Switching engines abandons the diagnostic challenge. Continue?'))) return;
+        app.challenge.close();
+      }
       document.querySelectorAll('#engineSel button').forEach((x) => x.classList.toggle('active', x === b));
       app.setEngine(b.dataset.engine);
       for (const f of ECU.FAULTS) this.faultEls[f.id].classList.remove('on');

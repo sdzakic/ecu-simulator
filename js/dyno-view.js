@@ -84,7 +84,7 @@
       this.runs.push({
         id: Date.now(), color: COLORS.find((c) => !used.has(c)) || COLORS[this.runs.length % COLORS.length], visible: true,
         type: S.type, octane: S.octane, boost: S.boostTarget, mapsMod, rate: d.rate,
-        faults: Object.keys(S.faults).filter((k) => S.faults[k]), samples: d.samples, peak: d.peak,
+        faults: ECU.hideTruth ? [] : Object.keys(S.faults).filter((k) => S.faults[k]), samples: d.samples, peak: d.peak,
       });
       while (this.runs.length > MAX_RUNS) this.runs.shift();
       this.save();

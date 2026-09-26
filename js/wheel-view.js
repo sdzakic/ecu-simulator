@@ -15,7 +15,9 @@
     const { ctx, w } = fit(this.canvas, H);
     ctx.clearRect(0, 0, w, H);
     const colW = narrow ? w : w / 2;
-    const ckpDead = S.faults.ckp, cmpDead = S.faults.cmp;
+    // "✕" labels show the physical truth; during a diagnostic challenge only the (flat) signal is shown
+    const ckpDead = S.faults.ckp && !ECU.hideTruth, cmpDead = S.faults.cmp && !ECU.hideTruth;
+    const ckpFlat = S.faults.ckp, cmpFlat = S.faults.cmp;
 
     // ------------------------------------------------ CRANK
     {
@@ -95,7 +97,7 @@
       ctx.strokeStyle = ckpDead ? C.bad : '#4a5d75';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(cx, cy - R - 30); ctx.quadraticCurveTo(cx + 20, cy - R - 42, cx + 42, cy - R - 38); ctx.stroke();
-      if (S.rpm > 5 && onTooth && !ckpDead) {
+      if (S.rpm > 5 && onTooth && !ckpFlat) {
         glow(ctx, C.accent, 12);
         ctx.strokeStyle = rgba(C.accent, 0.8);
         ctx.lineWidth = 1.2;
@@ -116,14 +118,14 @@
       const l360 = ((theta % 360) + 360) % 360;
       lines.push(['Crank angle', l360 < 180 ? T('{a}° ATDC 1/4', { a: l360.toFixed(0) }) : T('{a}° BTDC 1/4', { a: (360 - l360).toFixed(0) })]);
       lines.push(['Tooth period', period ? `${period.toFixed(2)} ms` : '—']);
-      lines.push(['Signal', ckpDead ? T('none!') : S.ckpType === 'vr' ? `±${(Math.max(0.2, S.rpm / 450)).toFixed(1)} V AC` : T('0 / 5 V square')]);
+      lines.push(['Signal', ckpFlat ? T('none') : S.ckpType === 'vr' ? `±${(Math.max(0.2, S.rpm / 450)).toFixed(1)} V AC` : T('0 / 5 V square')]);
       lines.push(['Gives the ECU', T('RPM + position')]);
       this.infoLines(ctx, tx, 44, lines, Math.max(120, colW - tx - 8));
 
       // trace
       const ty = cy + R + 14, th = narrow ? 60 : H - ty - 8;
       this.trace(ctx, 10, ty, colW - 20, th, theta, 360, (ang) => {
-        if (ckpDead || S.rpm < 1) return 0;
+        if (ckpFlat || S.rpm < 1) return 0;
         const v = ECU.ckpSignal(ang, S.ckpType, S.rpm);
         return S.ckpType === 'vr' ? v * Math.min(1, 0.25 + S.rpm / 2000) : v * 1.6 - 0.8;
       }, C.accent, 'last 360°', (ang) => ECU.ckpTooth(ang).missing);
@@ -135,7 +137,7 @@
       const R = Math.min(60, colW * 0.18);
       const cx = ox + R + 40, cy = oy + 58 + 74;
       const psi = ((((theta + (S.vvt || 0)) % 720) + 720) % 720) / 2;
-      const high = !cmpDead && ECU.cmpSignal(theta, S.vvt);
+      const high = !cmpFlat && ECU.cmpSignal(theta, S.vvt);
 
       ctx.fillStyle = C.muted;
       ctx.font = '700 10px Inter, sans-serif';
@@ -196,7 +198,7 @@
       const tx = cx + R + 26;
       const lines = [
         ['Cam angle', `${psi.toFixed(0)}°`],
-        ['Signal now', cmpDead ? T('none') : high ? T('HIGH (tab)') : T('low')],
+        ['Signal now', cmpFlat ? T('none') : high ? T('HIGH (tab)') : T('low')],
         ['Cam phase (VVT)', T('{a}° adv', { a: (S.vvt || 0).toFixed(1) })],
         ['Pulses', T('1 per 720° crank')],
         ['Gives the ECU', T('which stroke')],
@@ -204,7 +206,7 @@
       this.infoLines(ctx, tx, oy + 44, lines, Math.max(120, ox + colW - tx - 8));
 
       const ty = oy + 58 + 74 + 74 + 14, th = narrow ? 60 : H - ty - 8;
-      this.trace(ctx, ox + 10, ty, colW - 20, th, theta, 720, (ang) => (cmpDead || S.rpm < 1 ? 0 : ECU.cmpSignal(ang, S.vvt) * 1.6 - 0.8), C.cam, 'last 720°');
+      this.trace(ctx, ox + 10, ty, colW - 20, th, theta, 720, (ang) => (cmpFlat || S.rpm < 1 ? 0 : ECU.cmpSignal(ang, S.vvt) * 1.6 - 0.8), C.cam, 'last 720°');
     }
   };
 

@@ -407,7 +407,7 @@
     else if (dwellNow) tags.push([T('coil charging'), rgba(C.spark, 0.8)]);
     if (injNow) tags.push([T('INJ {pw} ms', { pw: S.pw.toFixed(1) }), C.fuel]);
     if (this.knockShown[c]) tags.push([T('KNOCK!'), '#ffffff']);
-    if (S.faults.misfire3 && c === 2 && S.running) tags.push([T('NO SPARK'), C.bad]);
+    if (S.faults.misfire3 && c === 2 && S.running && !ECU.hideTruth) tags.push([T('NO SPARK'), C.bad]);
     if (S.injCut[c]) tags.push([T('INJ CUT'), C.bad]);
     if (S.fuelCutAll && S.running && (S.dfco || S.revCut || S.overboostCut)) tags.push([S.dfco ? 'DFCO' : S.revCut ? T('REV CUT') : T('OB CUT'), C.warn]);
     ctx.font = '700 9.5px Inter, sans-serif';

@@ -25,6 +25,16 @@ On narrow screens the controls become a slide-in drawer (panel button, top left)
 
 Click **🎓 Lessons** in the top bar. Each lesson drives the simulator, highlights the relevant panel and explains what's happening, waiting for the right moment before moving on: cold start and sync, closed loop and fuel trims, knock, turbo lag and boost control, decel fuel cut and the rev limiter, and misfire detection. Lessons live in `js/lessons.js` with English and Croatian text side by side.
 
+## Diagnostic challenge
+
+Click **🩺 Challenge**, pick a difficulty, and the simulator secretly injects a random fault into the current engine. You get the customer's complaint and investigate with everything on screen: sensors and their signal voltages, live data, fuel trims, the scope, the dyno. Then you name the fault. Hints, reading codes (on medium), wrong guesses and time cost points. Anything that would give the answer away is hidden during the challenge: fault switches, "fault injected" log lines, "broken" sensor LEDs and labels, and fault codes (depending on difficulty). At the end you see the fault, where to look, the key clue, and a repair button.
+
+| Difficulty | Answer choices | Fault codes |
+|---|---|---|
+| Easy | 4 | visible |
+| Medium | 6 | reading them costs 20 points |
+| Hard | all faults | hidden |
+
 ## Calibration maps
 
 The ECU runs on real lookup tables: **spark advance** and **target λ** (rpm × load), plus **boost target** (rpm × pedal) on the turbo. A white dot tracks the live operating point, and the four cells it interpolates between light up. Drag across cells to select them, then edit with the buttons or the keyboard (+/−, PgUp/PgDn, arrows, Delete). Edits take effect immediately and are saved per engine in the browser. Lessons always run on the stock maps.

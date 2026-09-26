@@ -557,3 +557,31 @@ body.is-turbo .diag .na-only { display: none; }
 .dlabel { display: flex; flex-direction: column; min-width: 0; }
 .dlabel b { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dlabel span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+
+/* ================= DIAGNOSTIC CHALLENGE ================= */
+.ctl.faults.locked { position: relative; }
+.ctl.faults.locked .fault-list, .ctl.faults.locked #clearDtc { filter: blur(4px); opacity: .35; pointer-events: none; user-select: none; }
+.ctl.faults.locked::after {
+  content: attr(data-lock-msg); position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center;
+  font-size: 12px; font-weight: 700; color: var(--accent); background: rgba(10, 16, 24, .85); border: 1px solid rgba(46, 230, 197, .35);
+  padding: 8px 10px; border-radius: 10px;
+}
+.dtc.masked { background: rgba(125, 141, 163, .08); border-color: var(--line2); }
+.dtc.masked b { color: var(--muted); }
+.challenge { border-color: rgba(255, 192, 67, .5); box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 30px rgba(255, 192, 67, .12); }
+.challenge .coach-badge { color: var(--warn); }
+.ch-complaint { font-size: 13.5px; line-height: 1.5; color: var(--text); font-style: italic; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.ch-complaint span { display: block; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+.ch-live { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: 8px 0; }
+.ch-hint { font-size: 12.5px; line-height: 1.5; color: #d3dfec; background: rgba(255, 192, 67, .06); border: 1px solid rgba(255, 192, 67, .22); border-radius: 10px; padding: 8px 10px; margin-top: 6px; }
+.ch-hint b { color: var(--warn); margin-right: 4px; }
+.ch-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; max-height: 240px; overflow-y: auto; }
+.ch-opt { text-align: left; font-size: 11.5px; font-weight: 600; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); cursor: pointer; line-height: 1.25; }
+.ch-opt:hover { border-color: rgba(46, 230, 197, .6); }
+.ch-opt.wrong { opacity: .45; text-decoration: line-through; border-color: rgba(255, 77, 94, .5); cursor: not-allowed; }
+.ch-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.ch-result { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+.ch-result.ok { color: var(--ok); }
+.ch-result.bad { color: var(--bad); }
+.challenge .coach-body p { margin: 4px 0 6px; }
+@media (max-width: 860px) { .ch-opts { grid-template-columns: 1fr; } }

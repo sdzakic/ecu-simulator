@@ -107,6 +107,7 @@
   app.maps = new ECU.MapsView(app);
   app.dyno = new ECU.DynoView(app);
   app.lessons = new ECU.Lessons(app);
+  app.challenge = new ECU.ChallengeUI(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
   let last = performance.now();
@@ -144,6 +145,7 @@
     app.diagram.animate(S, th, dtVis);
     if (!app.paused) app.trends.sample(S, dt);
     app.lessons.tick(S);
+    app.challenge.tick();
 
     tTrend += dt; tUi += dt; tBrain += dt; tDiag += dt; tNow += dt;
     if (tTrend > 0.05) { tTrend = 0; app.trends.render(S); }

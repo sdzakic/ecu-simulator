@@ -217,7 +217,7 @@
         if (S.injCut[c]) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('INJECTOR CUT (misfire protection)'), x0 + 8, mid + 3); }
       } else if (r.kind === 'ign') {
         const c = r.c;
-        const dead = S.faults.misfire3 && c === 2;
+        const dead = S.faults.misfire3 && c === 2 && !ECU.hideTruth; // the ECU still commands the spark
         const on = alive && S.sync > 0 && !S.faults.ckp;
         const adv = S.sparkCyl[c];
         const dwellDeg = Math.min(200, S.dwell * degPerMs);
@@ -297,7 +297,7 @@
           }
           ctx.stroke();
         });
-        if (dead) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('SENSOR FAILED — ECU is deaf, uses safe retarded spark'), x0 + 8, mid + 3); }
+        if (dead && !ECU.hideTruth) { ctx.fillStyle = C.bad; ctx.font = '700 9px Inter'; ctx.fillText(T('SENSOR FAILED — ECU is deaf, uses safe retarded spark'), x0 + 8, mid + 3); }
       } else if (r.kind === 'crank') {
         const scale = alive ? Math.max(0.3, Math.min(1.4, 1300 / Math.max(rpm, 300))) : 0;
         both(() => {

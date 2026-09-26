@@ -40,6 +40,7 @@
           <button data-speed="1" data-i18n>Real</button>
         </div>
       </div>
+      <button class="btn lessons-btn" id="challengeBtn"><span aria-hidden="true">🩺</span><span data-i18n>Challenge</span></button>
       <button class="btn lessons-btn" id="lessonsBtn"><span aria-hidden="true">🎓</span><span data-i18n>Lessons</span></button>
       <button class="btn icon" id="pauseBtn" data-i18n-title title="Pause (P)"><svg viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg><span>Pause</span></button>
       <button class="btn icon ghost" id="helpBtn" data-i18n-title title="How to use"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5v.7M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -280,6 +281,17 @@
     </div>
   </div>
 
+  <!-- Diagnostic challenge card + picker -->
+  <div class="coach challenge" id="challengeCard" role="dialog" aria-live="polite"></div>
+  <div class="modal" id="challengeModal" aria-hidden="true">
+    <div class="modal-card lesson-modal">
+      <button class="drawer-x" data-close>×</button>
+      <h2>Diagnostic challenge</h2>
+      <p class="hint"></p>
+      <div class="lesson-list"></div>
+    </div>
+  </div>
+
   <!-- Help overlay -->
   <div class="modal" id="helpModal" aria-hidden="true">
     <div class="modal-card">
@@ -313,6 +325,7 @@
   <script src="js/maps-view.js"></script>
   <script src="js/dyno-view.js"></script>
   <script src="js/lessons.js"></script>
+  <script src="js/challenge.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
