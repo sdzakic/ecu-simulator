@@ -40,6 +40,7 @@
           <button data-speed="1" data-i18n>Real</button>
         </div>
       </div>
+      <div class="sound-wrap"><button class="btn icon ghost" id="soundBtn"><span aria-hidden="true">🔇</span></button><input type="range" id="soundVol" min="0" max="100" value="50" class="range" aria-label="Volume"></div>
       <button class="btn lessons-btn" id="challengeBtn"><span aria-hidden="true">🩺</span><span data-i18n>Challenge</span></button>
       <button class="btn lessons-btn" id="lessonsBtn"><span aria-hidden="true">🎓</span><span data-i18n>Lessons</span></button>
       <button class="btn icon" id="pauseBtn" data-i18n-title title="Pause (P)"><svg viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg><span>Pause</span></button>
@@ -305,7 +306,7 @@
         <li><b>Break things:</b> inject faults on the left and see how the ECU detects them, stores DTCs and falls back to backup strategies.</li>
         <li><b>Slow-mo:</b> the crank-angle views run slowed down so you can follow each injection and spark. Pause (<kbd>P</kbd>) and drag across the timing scope to scrub the crank.</li>
       </ol>
-      <p class="hint" data-i18n-html>Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause · <kbd>C</kbd> controls</p>
+      <p class="hint" data-i18n-html>Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause · <kbd>C</kbd> controls · <kbd>M</kbd> sound</p>
     </div>
   </div>
 
@@ -326,6 +327,7 @@
   <script src="js/dyno-view.js"></script>
   <script src="js/lessons.js"></script>
   <script src="js/challenge.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

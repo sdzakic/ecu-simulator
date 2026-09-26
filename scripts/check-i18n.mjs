@@ -14,7 +14,7 @@ const missing = new Map();
 const note = (key, where) => { if (key && !(key in HR)) missing.set(key, where); };
 
 // 1) explicit keys: T('..'), ECU.t('..'), log(.., '..'), edge(.., '..'), { k: '..' }, step('..')
-const files = ['sim.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js'];
+const files = ['sim.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js'];
 const str = `'((?:[^'\\\\]|\\\\.)*)'|"((?:[^"\\\\]|\\\\.)*)"`;
 const patterns = [
   new RegExp(`\\bT\\(\\s*(?:${str})`, 'g'),

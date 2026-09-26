@@ -717,6 +717,7 @@
       else if (k === 's') app.quickStart();
       else if (k === 'p') app.togglePause();
       else if (k === 'c') this.toggleControls();
+      else if (k === 'm') app.sound.toggle();
       else if (e.key === 'Escape') { this.closeDrawer(); this.setDrawer(false); $('#helpModal').classList.remove('open'); }
     });
     window.addEventListener('keyup', (e) => {

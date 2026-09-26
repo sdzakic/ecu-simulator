@@ -25,6 +25,10 @@ On narrow screens the controls become a slide-in drawer (panel button, top left)
 
 Click **🎓 Lessons** in the top bar. Each lesson drives the simulator, highlights the relevant panel and explains what's happening, waiting for the right moment before moving on: cold start and sync, closed loop and fuel trims, knock, turbo lag and boost control, decel fuel cut and the rev limiter, and misfire detection. Lessons live in `js/lessons.js` with English and Croatian text side by side.
 
+## Engine sound
+
+Click 🔊 (or press `M`). The sound is synthesised live with Web Audio from the simulation; nothing is pre-recorded. The engine note runs at the true firing frequency (rpm ÷ 30 for a 4-cylinder), and its brightness and loudness follow throttle and combustion torque, so fuel cut (DFCO, rev limiter) goes quiet by itself. On top: intake roar, exhaust rumble, a lumpy beat when a cylinder misfires, a ping for every detected knock event, turbo whistle rising with shaft speed, the blow-off valve, the starter motor and the fuel pump's key-on prime.
+
 ## Diagnostic challenge
 
 Click **🩺 Challenge**, pick a difficulty, and the simulator secretly injects a random fault into the current engine. You get the customer's complaint and investigate with everything on screen: sensors and their signal voltages, live data, fuel trims, the scope, the dyno. Then you name the fault. Hints, reading codes (on medium), wrong guesses and time cost points. Anything that would give the answer away is hidden during the challenge: fault switches, "fault injected" log lines, "broken" sensor LEDs and labels, and fault codes (depending on difficulty). At the end you see the fault, where to look, the key clue, and a repair button.

@@ -108,6 +108,7 @@
   app.dyno = new ECU.DynoView(app);
   app.lessons = new ECU.Lessons(app);
   app.challenge = new ECU.ChallengeUI(app);
+  app.sound = new ECU.SoundUI(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
   let last = performance.now();
@@ -146,6 +147,7 @@
     if (!app.paused) app.trends.sample(S, dt);
     app.lessons.tick(S);
     app.challenge.tick();
+    app.sound.update(S);
 
     tTrend += dt; tUi += dt; tBrain += dt; tDiag += dt; tNow += dt;
     if (tTrend > 0.05) { tTrend = 0; app.trends.render(S); }

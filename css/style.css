@@ -585,3 +585,11 @@ body.is-turbo .diag .na-only { display: none; }
 .ch-result.bad { color: var(--bad); }
 .challenge .coach-body p { margin: 4px 0 6px; }
 @media (max-width: 860px) { .ch-opts { grid-template-columns: 1fr; } }
+
+/* ================= SOUND ================= */
+.sound-wrap { display: flex; align-items: center; gap: 6px; }
+#soundBtn span { font-size: 15px; line-height: 1; }
+#soundBtn.active { color: var(--accent); border-color: rgba(46, 230, 197, .45); }
+#soundVol { width: 0; opacity: 0; transition: width .25s ease, opacity .2s ease; margin: 0; }
+body.sound-on #soundVol { width: 74px; opacity: 1; }
+@media (max-width: 860px) { body.sound-on #soundVol { display: none; } }
