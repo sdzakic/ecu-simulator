@@ -65,7 +65,8 @@
     'break things!': 'pokvarite nešto!',
     '🔧 Scan tool: clear DTCs': '🔧 Dijagnostika: obriši kodove grešaka',
     'Inside the engine': 'Unutar motora',
-    'firing order 1-3-4-2 · each cylinder cut open': 'redoslijed paljenja 1-3-4-2 · presjek svakog cilindra',
+    'firing order {o} · each cylinder cut open': 'redoslijed paljenja {o} · presjek svakog cilindra',
+    'firing order {o} · bank A on top, bank B below': 'redoslijed paljenja {o} · red A gore, red B dolje',
     'Crank': 'Radilica',
     'Cam': 'Bregasto',
     'How the ECU knows where the engine is': 'Kako ECU zna gdje je motor',
@@ -91,8 +92,8 @@
     'How to use the simulator': 'Kako koristiti simulator',
     '<li><b>Start:</b> click <em>⚡ Start engine</em> (or turn the key to ON, wait for the bulb check and fuel pump prime, then START). Watch the CKP gap and the cam pulse bring the ECU into sync.</li>\n        <li><b>Watch it warm up:</b> cold-start enrichment, high idle and retarded spark for catalyst heating fade away. At 35 °C the ECU enters <em>closed loop</em> — the O2 sensor starts switching.</li>\n        <li><b>Drive:</b> pick a gear, press the pedal (hold <kbd>W</kbd>), brake with <kbd>Space</kbd>. Try WOT for power enrichment, release above 1700 rpm for decel fuel cut, hit the rev limiter.</li>\n        <li><b>Turbo:</b> switch engine type. See turbo lag, wastegate control, the blow-off valve, charge-air cooling and knock-limited spark.</li>\n        <li><b>Break things:</b> inject faults on the left and see how the ECU detects them, stores DTCs and falls back to backup strategies.</li>\n        <li><b>Slow-mo:</b> the crank-angle views run slowed down so you can follow each injection and spark. Pause (<kbd>P</kbd>) and drag across the timing scope to scrub the crank.</li>':
       '<li><b>Paljenje:</b> kliknite <em>⚡ Upali motor</em> (ili okrenite ključ na UKLJ, pričekajte provjeru žaruljica i punjenje pumpe goriva, pa START). Pratite kako praznina na CKP kotaču i impuls bregastog vratila sinkroniziraju ECU.</li>\n        <li><b>Zagrijavanje:</b> obogaćivanje za hladan start, povišeni prazni hod i kasnije paljenje za zagrijavanje katalizatora postupno nestaju. Na 35 °C ECU prelazi u <em>zatvorenu petlju</em> — lambda sonda počinje prebacivati.</li>\n        <li><b>Vožnja:</b> odaberite brzinu, pritisnite papučicu (držite <kbd>W</kbd>), kočite <kbd>razmakom</kbd>. Probajte pun gas za obogaćivanje snage, pustite gas iznad 1700 o/min za prekid goriva pri kočenju motorom, udarite u graničnik okretaja.</li>\n        <li><b>Turbo:</b> promijenite vrstu motora. Vidjet ćete turbo rupu, regulaciju wastegatea, blow-off ventil, hlađenje stlačenog zraka i paljenje ograničeno detonacijom.</li>\n        <li><b>Kvarovi:</b> uključite kvarove s lijeve strane i gledajte kako ih ECU otkriva, sprema kodove grešaka i prelazi na rezervne strategije.</li>\n        <li><b>Usporeno:</b> prikazi po kutu radilice su usporeni kako biste pratili svako ubrizgavanje i iskru. Pauzirajte (<kbd>P</kbd>) i povucite preko vremenskog dijagrama da pomičete radilicu.</li>',
-    'Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>5</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause · <kbd>C</kbd> controls · <kbd>M</kbd> sound':
-      'Tipkovnica: <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>Razmak</kbd> kočnica · <kbd>0</kbd>–<kbd>5</kbd> brzina · <kbd>S</kbd> start · <kbd>P</kbd> pauza · <kbd>C</kbd> kontrole · <kbd>M</kbd> zvuk',
+    'Keyboard: <kbd>W</kbd>/<kbd>↑</kbd> throttle · <kbd>Space</kbd> brake · <kbd>0</kbd>–<kbd>6</kbd> gear · <kbd>S</kbd> start · <kbd>P</kbd> pause · <kbd>C</kbd> controls · <kbd>M</kbd> sound':
+      'Tipkovnica: <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>Razmak</kbd> kočnica · <kbd>0</kbd>–<kbd>6</kbd> brzina · <kbd>S</kbd> start · <kbd>P</kbd> pauza · <kbd>C</kbd> kontrole · <kbd>M</kbd> zvuk',
 
     // ---------- event log (sim) ----------
     'DTC {code} stored — {text} · MIL on': 'Kod greške {code} spremljen — {text} · MIL lampica upaljena',
@@ -292,7 +293,7 @@
     'Counting teeth, looking for the missing-tooth gap…': 'Brojim zube, tražim prazninu…',
     'No crank rotation.': 'Radilica se ne okreće.',
     'RPM from tooth period: <b>{r} rpm</b>': 'Okretaji iz perioda zuba: <b>{r} o/min</b>',
-    'MAF <b>{m} g/s</b> ÷ ({r} rpm ÷ 30) = <b>{a} g/cyl</b>': 'MAF <b>{m} g/s</b> ÷ ({r} o/min ÷ 30) = <b>{a} g/cil</b>',
+    'MAF <b>{m} g/s</b> ÷ ({r} rpm ÷ {d}) = <b>{a} g/cyl</b>': 'MAF <b>{m} g/s</b> ÷ ({r} o/min ÷ {d}) = <b>{a} g/cil</b>',
     'VE × MAP <b>{p} kPa</b> × V<sub>cyl</sub> ÷ (R·T<sub>IAT</sub>) = <b>{a} g/cyl</b>': 'VE × MAP <b>{p} kPa</b> × V<sub>cil</sub> ÷ (R·T<sub>IAT</sub>) = <b>{a} g/cil</b>',
     'from throttle angle only ({t} %) = <b>{a} g/cyl</b>': 'samo iz kuta leptira ({t} %) = <b>{a} g/cil</b>',
     '2 · How much air per cylinder?': '2 · Koliko zraka po cilindru?',
@@ -399,8 +400,8 @@
     'Intake valve {c} closes — the trapped air mass is what MAF/MAP predicted. Compression begins.':
       'Usisni ventil {c} se zatvara — zarobljena masa zraka je ona koju su predvidjeli MAF/MAP. Počinje kompresija.',
     'CKP GAP': 'CKP PRAZNINA',
-    'The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & 4.':
-      'Praznina prolazi pored senzora radilice → ECU potvrđuje: sljedeći zub = 90° prije GMT cilindara 1 i 4.',
+    'The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & {b}.':
+      'Praznina prolazi pored senzora radilice → ECU potvrđuje: sljedeći zub = 90° prije GMT cilindara 1 i {b}.',
     'Cam tab under the sensor — confirms cylinder 1 is approaching its <b>compression</b> TDC (not exhaust).':
       'Zub bregastog ispod senzora — potvrđuje da se cilindar 1 približava GMT <b>kompresije</b> (ne ispuha).',
     'Crank at {a}° — between events. Tooth #{n} under the CKP sensor.': 'Radilica na {a}° — između događaja. Zub #{n} ispod CKP senzora.',
@@ -942,5 +943,31 @@
     'WAIT': 'ČEKA',
     'ROLL': 'KLIZI',
     'FREE RUN': 'SLOBODNO',
+    // ---- V12 + gearbox ----
+    '6.5 V12': '6,5 V12',
+    'Naturally aspirated 6.5 L V12': 'Atmosferski 6,5 L V12',
+    '6.5 L · 9200 rpm': '6,5 L · 9200 o/min',
+    'Twelve cylinders in two banks at 65°, one firing every 60° of crank, 13.6:1 compression, twin throttle bodies and a 9200 rpm limit.': 'Dvanaest cilindara u dva reda pod 65°, paljenje svakih 60° radilice, kompresija 13,6:1, dva kućišta leptira i graničnik na 9200 o/min.',
+    'BANK {b}': 'RED {b}',
+    'Bank A of 2 · DOHC 48V': 'Red A od 2 · DOHC 48V',
+    'Strokes 1–{n}': 'Taktovi 1–{n}',
+    'Manual 6-speed': 'Ručni, 6 brzina',
+    'Automatic 8-speed': 'Automatski, 8 brzina',
+    'selector N': 'birač N',
+    'shifting': 'mijenja',
+    'lock-up': 'premoštenje',
+    'converter {r}×': 'pretvarač {r}×',
+    'neutral': 'prazan hod',
+    'clutch open': 'spojka otvorena',
+    'clutch engaged': 'spojka spojena',
+    'clutch slipping {p} %': 'spojka proklizava {p} %',
+    'Selector D: 1st gear engaged — the torque converter lets the car creep, so hold the brake.': 'Birač D: uključena 1. brzina — pretvarač zakretnog momenta tjera auto da puzi, zato držite kočnicu.',
+    'Selector N: gearbox in neutral.': 'Birač N: mjenjač u praznom hodu.',
+    'Gearbox: 8-speed automatic with torque converter. Select D to drive.': 'Mjenjač: automatski s 8 brzina i pretvaračem zakretnog momenta. Odaberite D za vožnju.',
+    'Gearbox: 6-speed manual. The simulator works the clutch for you.': 'Mjenjač: ručni sa 6 brzina. Simulator umjesto vas rukuje spojkom.',
+    'Kickdown: pedal floored → TCU drops from {a} to {b}.': 'Kickdown: papučica do poda → upravljač mjenjača spušta s {a}. na {b}. brzinu.',
+    'TCU shift {a} → {b}: the ECU retards spark for a moment so the shift is smooth (torque intervention).': 'Promjena {a} → {b}: ECU na trenutak kasni s paljenjem da promjena bude glatka (smanjenje momenta na zahtjev mjenjača).',
+    'Torque converter lock-up clutch closed: engine and gearbox now turn together — no more slip.': 'Spojka za premoštenje pretvarača zatvorena: motor i mjenjač sada se vrte zajedno — nema više proklizavanja.',
+    'Revs falling toward a stall → clutch pressed (gear {g} too high for this speed).': 'Okretaji padaju prema gašenju → spojka pritisnuta ({g}. brzina previsoka za ovu brzinu vožnje).',
   });
 })();

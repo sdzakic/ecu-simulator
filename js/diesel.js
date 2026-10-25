@@ -246,9 +246,10 @@
     // ---------- fuel quantity: driver's wish → idle governor → limiters ----------
     S.idleTarget = E.idle + clamp((40 - ectU) * 4, 0, 200) + (S.ac ? 50 : 0) + (S.regen ? 100 : 0);
     const idleErr = S.idleTarget - sens.rpm;
-    if (S.running && S.pedal < 1) {
-      S.qIdleI = clamp(S.qIdleI + idleErr * 0.004 * dt, -3, 12);
-      S.qIdle = clamp(4.5 + idleErr * 0.012 + S.qIdleI, 0, 20);
+    if (S.running && (S.pedal < 1 || idleErr > 0)) { // min-max governor: it also catches the engine when revs sag under load
+      const sag = Math.max(0, idleErr - 40); // revs pulled well below idle (pulling away, A/C, steering): respond harder
+      S.qIdleI = clamp(S.qIdleI + (idleErr * 0.004 + sag * 0.02) * dt, -3, 14);
+      S.qIdle = clamp(4.5 + (S.trans === 'auto' && S.gear > 0 ? 2.5 : 0) + idleErr * 0.012 + sag * 0.05 + S.qIdleI, 0, 26); // + converter load in D
     } else if (!S.running) { S.qIdle = S.cranking ? 12 + clamp((10 - ectU) * 0.3, 0, 8) : 0; S.qIdleI = 0; }
     else S.qIdle = clamp(4.5 + S.qIdleI, 0, 12);
     S.qDriver = interp2(S.cal.quantity, sens.rpm, S.pedal);

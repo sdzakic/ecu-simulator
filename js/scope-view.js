@@ -11,31 +11,32 @@
   function ScopeView(canvas) {
     this.canvas = canvas;
     this.rows = [];
-    this.knockMark = [0, 0, 0, 0];
-    this.prevKnock = [0, 0, 0, 0];
+    this.knockMark = new Array(12).fill(0);
+    this.prevKnock = new Array(12).fill(0);
     this.prevTheta = 0;
     this.hoverX = null;
   }
 
-  ScopeView.prototype.layout = function (w, diesel) {
+  ScopeView.prototype.layout = function (w, diesel, n) {
+    const many = n > 4; // V12: thinner per-cylinder rows
     const labelW = w < 700 ? 74 : 118;
     const x0 = labelW, x1 = w - 12;
     const rows = [];
     let y = 26;
     const add = (id, label, h, extra) => { rows.push(Object.assign({ id, label, y, h }, extra || {})); y += h; };
-    for (let c = 0; c < 4; c++) add('stroke' + c, 'Strokes 1–4', 13, { c, kind: 'stroke', info: null });
+    for (let c = 0; c < n; c++) add('stroke' + c, 'Strokes 1–{n}', many ? 7 : 13, { c, kind: 'stroke', info: null });
     y += 8;
     add('ckp', 'CKP crank', 50, { kind: 'ckp', info: 'ckp' });
     y += 4;
     add('cmp', 'CMP cam', 28, { kind: 'cmp', info: 'cmp' });
     y += 8;
-    for (let c = 0; c < 4; c++) add('inj' + c, 'Injector {c}', 17, { c, kind: 'inj', info: 'act:inj' });
+    for (let c = 0; c < n; c++) add('inj' + c, 'Injector {c}', many ? 11 : 17, { c, kind: 'inj', info: 'act:inj' });
     y += 8;
     if (diesel) {
       add('rail', 'Rail pressure', 46, { kind: 'rail', info: 'rail' });
       y += 6;
     } else {
-      for (let c = 0; c < 4; c++) add('ign' + c, 'Coil {c}', 19, { c, kind: 'ign', info: 'act:coil' });
+      for (let c = 0; c < n; c++) add('ign' + c, 'Coil {c}', many ? 12 : 19, { c, kind: 'ign', info: 'act:coil' });
       y += 8;
       add('knock', 'Knock sensor', 44, { kind: 'knock', info: 'knock' });
       y += 6;
@@ -60,7 +61,8 @@
 
   ScopeView.prototype.render = function (S, theta) {
     const w = this.canvas.clientWidth;
-    const H = this.layout(w, S.E.diesel);
+    const Gm = ECU.geom(S.E), n = Gm.n, OFF = Gm.off, many = n > 4;
+    const H = this.layout(w, S.E.diesel, n);
     const { ctx } = fit(this.canvas, H);
     ctx.clearRect(0, 0, w, H);
     const th = ((theta % 720) + 720) % 720;
@@ -69,10 +71,10 @@
     const small = w < 700;
 
     // knock latch (per visual cycle)
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < n; c++) {
       if (S.knockTrue[c] > this.prevKnock[c] + 0.05) this.knockMark[c] = 1;
       this.prevKnock[c] = S.knockTrue[c];
-      const winEnd = (ECU.CYL_OFFSET[c] + 70) % 720;
+      const winEnd = (OFF[c] + 70) % 720;
       if (this.crossed(this.prevTheta, th, winEnd)) this.knockMark[c] *= 0.35;
     }
     this.prevTheta = th;
@@ -88,7 +90,7 @@
       if (major) {
         ctx.fillStyle = C.muted;
         ctx.textAlign = a === 720 ? 'right' : a === 0 ? 'left' : 'center';
-        const cyl = { 0: 1, 180: 3, 360: 4, 540: 2, 720: 1 }[a];
+        const cyl = OFF.indexOf(a % 720) + 1;
         ctx.fillText(small ? `${a}°` : T('{a}° · TDC {c}', { a, c: cyl }), x, 13);
       }
     }
@@ -101,8 +103,10 @@
       const col = r.kind === 'rail' ? C.fuel : r.kind === 'inj' ? C.fuel : r.kind === 'ign' ? C.spark : r.kind === 'ckp' ? C.accent : r.kind === 'cmp' ? C.cam : r.kind === 'knock' ? '#ff8fa0' : r.kind === 'crank' ? C.info : C.muted;
       ctx.fillStyle = col;
       const SHORT = { stroke: 'Strokes', ckp: 'CKP', cmp: 'CMP', inj: 'INJ {c}', ign: 'IGN {c}', knock: 'Knock', crank: 'ω crank', rail: 'Rail' };
-      const label = T(small ? SHORT[r.kind] : r.label, { c: r.c + 1 });
-      const yy = r.kind === 'stroke' ? r.y + 30 : r.y + r.h / 2 + 4;
+      const label = T(small ? SHORT[r.kind] : r.label, { c: r.c + 1, n });
+      const yy = r.kind === 'stroke' ? r.y + (many ? 46 : 30) : r.y + r.h / 2 + (many ? 3.5 : 4);
+      if (many && r.kind !== 'stroke' && (r.kind === 'inj' || r.kind === 'ign')) ctx.font = `600 ${small ? 8 : 9}px Inter, sans-serif`;
+      else ctx.font = `600 ${small ? 9 : 10.5}px Inter, sans-serif`;
       ctx.fillText(label, 8, yy);
       if (r.info && !small) { ctx.fillStyle = C.dim; ctx.fillText('ⓘ', x0 - 18, yy); }
     }
@@ -119,14 +123,14 @@
       const mid = r.y + r.h / 2;
       if (r.kind === 'stroke') {
         for (let s = 0; s < 4; s++) {
-          const a0 = ECU.CYL_OFFSET[r.c] + s * 180;
+          const a0 = OFF[r.c] + s * 180;
           const seg = [[a0 % 720, (a0 % 720) + 180]];
           for (const [sa, sb] of seg) {
             for (const [pa, pb] of splitWrap(sa, sb)) {
               const xa = x0 + (pa / 720) * pw, xb = x0 + (pb / 720) * pw;
               ctx.fillStyle = rgba(STROKE_COL[s], 0.28);
               ctx.fillRect(xa + 0.5, r.y + 1, xb - xa - 1, r.h - 2);
-              if (xb - xa > 30) {
+              if (xb - xa > 30 && !many) {
                 ctx.fillStyle = STROKE_COL[s];
                 ctx.font = '700 8.5px Inter, sans-serif';
                 ctx.fillText(xb - xa > 90 && !small ? `${r.c + 1}·${T(STROKE_WORD[s])}` : `${r.c + 1}${T(STROKE_WORD[s]).charAt(0)}`, xa + 4, r.y + r.h - 3);
@@ -188,9 +192,9 @@
         const base = r.y + r.h - 3, top = r.y + 3;
         const pulses = [];
         if (on) {
-          if (S.pilot) pulses.push([ECU.CYL_OFFSET[c] - S.pilotSoi, 3, 0.45, 'pilot']);
-          pulses.push([ECU.CYL_OFFSET[c] - S.soi, Math.max(2, Math.min(90, S.pw * degPerMs)), 1, 'main']);
-          if (S.postMg > 0) pulses.push([ECU.CYL_OFFSET[c] + 70, 10, 0.6, 'post']);
+          if (S.pilot) pulses.push([OFF[c] - S.pilotSoi, 3, 0.45, 'pilot']);
+          pulses.push([OFF[c] - S.soi, Math.max(2, Math.min(90, S.pw * degPerMs)), 1, 'main']);
+          if (S.postMg > 0) pulses.push([OFF[c] + 70, 10, 0.6, 'post']);
         }
         both(() => {
           ctx.strokeStyle = C.fuel; ctx.lineWidth = 1.3;
@@ -207,7 +211,7 @@
           }
         });
         if (on && !small) {
-          const g1 = ((ECU.CYL_OFFSET[c] - S.soi) % 720 + 720) % 720;
+          const g1 = ((OFF[c] - S.soi) % 720 + 720) % 720;
           ctx.fillStyle = C.fuel; ctx.font = '600 8.5px "JetBrains Mono", monospace';
           const t = T('{q} mg @ {a}° BTDC', { q: S.qMg.toFixed(1), a: S.soi.toFixed(1) }) + (S.pilot ? ' · ' + T('pilot') : '') + (S.postMg > 0 ? ' · ' + T('post') : '');
           const tx = this.xOf(g1) + 8;
@@ -223,7 +227,7 @@
           for (let i = 0; i <= 720; i += 2) {
             let v = alive ? S.rail : 0;
             for (let c = 0; c < 4; c++) {
-              const d = ((i - (ECU.CYL_OFFSET[c] - S.soi)) % 720 + 720) % 720;
+              const d = ((i - (OFF[c] - S.soi)) % 720 + 720) % 720;
               if (S.qMg > 0 && d < 40) v -= dip * Math.sin((d / 40) * Math.PI) * (d < 20 ? 1 : 0.6);
             }
             const x = x0 + (i / 720) * pw, y = yOf(v);
@@ -240,7 +244,7 @@
         const pwDeg = Math.min(700, S.pw * degPerMs);
         const eois = S.batch ? [S.eoi, S.eoi - 360] : [S.eoi];
         // intake valve open window for reference
-        const ivo = ECU.CYL_OFFSET[c] + 350 - (S.vvt || 0);
+        const ivo = OFF[c] + 350 - (S.vvt || 0);
         for (const [pa, pb] of splitWrap(ivo % 720, (ivo % 720) + 240)) {
           ctx.fillStyle = 'rgba(63,198,255,0.07)';
           ctx.fillRect(this.xOf(pa), r.y + 1, ((pb - pa) / 720) * pw, r.h - 3);
@@ -254,7 +258,7 @@
           ctx.moveTo(x0, base); ctx.lineTo(x1, base); ctx.stroke();
           if (on) {
             for (const eoi of eois) {
-              const g1 = ECU.CYL_OFFSET[c] + eoi;
+              const g1 = OFF[c] + eoi;
               const g0 = g1 - pwDeg;
               for (const [pa, pb] of splitWrap(((g0 % 720) + 720) % 720, ((g0 % 720) + 720) % 720 + pwDeg)) {
                 const xa = x0 + (pa / 720) * pw, xb = x0 + (pb / 720) * pw;
@@ -265,7 +269,7 @@
           }
         });
         if (on && !small) {
-          const g1 = (ECU.CYL_OFFSET[c] + S.eoi) % 720;
+          const g1 = (OFF[c] + S.eoi) % 720;
           ctx.fillStyle = C.fuel;
           ctx.font = '600 8.5px "JetBrains Mono", monospace';
           const t = `${S.pw.toFixed(2)} ms`;
@@ -278,7 +282,7 @@
         const on = alive && S.sync > 0 && !S.faults.ckp;
         const adv = S.sparkCyl[c];
         const dwellDeg = Math.min(200, S.dwell * degPerMs);
-        const sparks = S.batch ? [ECU.CYL_OFFSET[c] - adv, ECU.CYL_OFFSET[c] - adv + 360] : [ECU.CYL_OFFSET[c] - adv];
+        const sparks = S.batch ? [OFF[c] - adv, OFF[c] - adv + 360] : [OFF[c] - adv];
         both(() => {
           const base = r.y + r.h - 3, top = r.y + 3;
           ctx.strokeStyle = rgba(C.spark, 0.9);
@@ -312,7 +316,7 @@
           });
         });
         if (on && !small) {
-          const g = ((ECU.CYL_OFFSET[c] - adv) % 720 + 720) % 720;
+          const g = ((OFF[c] - adv) % 720 + 720) % 720;
           ctx.fillStyle = dead ? C.bad : C.spark;
           ctx.font = '600 8.5px "JetBrains Mono", monospace';
           const t = dead ? T('coil dead') : T('{a}° BTDC', { a: adv.toFixed(1) }) + (S.knockRetard[c] > 0.3 ? '  ' + T('(−{k}° knock)', { k: S.knockRetard[c].toFixed(1) }) : '');
@@ -321,14 +325,14 @@
         }
       } else if (r.kind === 'knock') {
         // knock windows
-        for (let c = 0; c < 4; c++) {
-          const a = ECU.CYL_OFFSET[c] + 10;
+        for (let c = 0; c < n; c++) {
+          const a = OFF[c] + 10;
           const xa = this.xOf(a), xb = this.xOf(a + 50);
-          ctx.fillStyle = rgba(CYL_COL[c], 0.08);
+          ctx.fillStyle = rgba(CYL_COL[c % 4], 0.08);
           ctx.fillRect(xa, r.y, xb - xa, r.h - 1);
-          ctx.fillStyle = rgba(CYL_COL[c], 0.7);
+          ctx.fillStyle = rgba(CYL_COL[c % 4], 0.7);
           ctx.font = '700 8px Inter';
-          ctx.fillText(T('win {c}', { c: c + 1 }), xa + 2, r.y + 9);
+          if (!many || !small) ctx.fillText(many ? String(c + 1) : T('win {c}', { c: c + 1 }), xa + 2, r.y + 9);
         }
         const dead = S.faults.knocksensor;
         const nAmp = alive ? Math.min(1, 0.15 + rpm / 7000) : 0.03;
@@ -341,8 +345,8 @@
             const a = (i / N) * 720;
             let v = (hash(i * 1.37) - 0.5) * nAmp * 0.5;
             if (alive) {
-              for (let c = 0; c < 4; c++) {
-                const L = ((a - ECU.CYL_OFFSET[c]) % 720 + 720) % 720;
+              for (let c = 0; c < n; c++) {
+                const L = ((a - OFF[c]) % 720 + 720) % 720;
                 if (L < 50) v += (hash(i * 3.1) - 0.5) * nAmp * 0.35 * (1 - L / 50); // combustion noise
                 const km = this.knockMark[c];
                 if (km > 0.05 && L > 12 && L < 60) v += Math.sin(L * 5.2) * Math.exp(-(L - 12) / 14) * km * 1.1;
@@ -363,8 +367,8 @@
           ctx.beginPath();
           for (let i = 0; i <= 720; i += 2) {
             let v = 0;
-            for (let c = 0; c < 4; c++) {
-              const L = ((i - ECU.CYL_OFFSET[c]) % 720 + 720) % 720;
+            for (let c = 0; c < n; c++) {
+              const L = ((i - OFF[c]) % 720 + 720) % 720;
               if (L < 180) {
                 const cs = S.ecuOn && S.sync > 0 && S.pw > 0 && !S.injCut[c] && !(S.faults.misfire3 && c === 2) && !S.fuelCutAll;
                 v += cs ? Math.sin((L / 180) * Math.PI * 2) * 0.55 + 0.12 : -Math.sin((L / 180) * Math.PI) * 0.8;
@@ -377,7 +381,7 @@
         });
         const mis = S.faults.misfire3 && S.running;
         if (mis) {
-          const xa = this.xOf(ECU.CYL_OFFSET[2]), xb = this.xOf(ECU.CYL_OFFSET[2] + 180);
+          const xa = this.xOf(OFF[2]), xb = this.xOf(OFF[2] + 180);
           ctx.fillStyle = 'rgba(255,77,94,0.12)';
           ctx.fillRect(xa, r.y, xb - xa, r.h - 1);
           ctx.fillStyle = C.bad; ctx.font = '700 9px Inter';

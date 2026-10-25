@@ -56,7 +56,7 @@ test('every challenge fault produces an observable symptom', () => {
     oil: (S) => S.oilP < 0.45,
     ckp: (S) => !S.running,
   };
-  for (const type of ['na', 'turbo', 'diesel']) {
+  for (const type of ['na', 'turbo', 'diesel', 'v12']) {
     for (const id of CH.applicable(type)) {
       if (type === 'turbo' && !CH.CASES[id].turbo) continue; // NA-side faults are covered on the NA engine
       const S = started(type);

@@ -16,22 +16,22 @@
     { pid: 0x05, name: 'Coolant temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.sens.ect + 40), dec: (A) => A - 40 },
     { pid: 0x06, name: 'Short-term fuel trim B1', unit: '%', f: '(A−128)×100/128', enc: (S) => b1(128 + S.stft * 128), dec: (A) => ((A - 128) * 100) / 128 },
     { pid: 0x07, name: 'Long-term fuel trim B1', unit: '%', f: '(A−128)×100/128', enc: (S) => b1(128 + S.ltft * 128), dec: (A) => ((A - 128) * 100) / 128 },
-    { pid: 0x0A, only: ['na', 'turbo'], name: 'Fuel pressure (gauge)', unit: 'kPa', f: '3×A', enc: (S) => b1((S.fuelP * 100) / 3), dec: (A) => 3 * A },
+    { pid: 0x0A, only: ['na', 'turbo', 'v12'], name: 'Fuel pressure (gauge)', unit: 'kPa', f: '3×A', enc: (S) => b1((S.fuelP * 100) / 3), dec: (A) => 3 * A },
     { pid: 0x0B, name: 'Intake manifold pressure', unit: 'kPa', f: 'A', enc: (S) => b1(S.sens.map), dec: (A) => A },
     { pid: 0x0C, name: 'Engine speed', unit: 'rpm', f: '((A×256)+B)/4', enc: (S) => b2(S.sens.rpm * 4), dec: (A, B) => (A * 256 + B) / 4 },
     { pid: 0x0D, name: 'Vehicle speed', unit: 'km/h', f: 'A', enc: (S) => b1(S.v * 3.6), dec: (A) => A },
-    { pid: 0x0E, only: ['na', 'turbo'], name: 'Timing advance', unit: '° BTDC', f: 'A/2 − 64', enc: (S) => b1((S.spark + 64) * 2), dec: (A) => A / 2 - 64 },
+    { pid: 0x0E, only: ['na', 'turbo', 'v12'], name: 'Timing advance', unit: '° BTDC', f: 'A/2 − 64', enc: (S) => b1((S.spark + 64) * 2), dec: (A) => A / 2 - 64 },
     { pid: 0x0F, name: 'Intake air temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.sens.iat + 40), dec: (A) => A - 40 },
     { pid: 0x10, name: 'MAF air flow rate', unit: 'g/s', f: '((A×256)+B)/100', enc: (S) => b2(S.sens.maf * 100), dec: (A, B) => (A * 256 + B) / 100 },
     { pid: 0x11, name: 'Throttle position', unit: '%', f: 'A×100/255', enc: (S) => b1(S.throttle * 2.55), dec: (A) => (A * 100) / 255 },
-    { pid: 0x14, only: ['na', 'turbo'], name: 'O2 sensor B1S1 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2v * 200), ...b1(128 + S.stft * 128)], dec: (A) => A / 200 },
-    { pid: 0x15, only: ['na', 'turbo'], name: 'O2 sensor B1S2 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2dn * 200), 0xff], dec: (A) => A / 200 },
+    { pid: 0x14, only: ['na', 'turbo', 'v12'], name: 'O2 sensor B1S1 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2v * 200), ...b1(128 + S.stft * 128)], dec: (A) => A / 200 },
+    { pid: 0x15, only: ['na', 'turbo', 'v12'], name: 'O2 sensor B1S2 voltage', unit: 'V', f: 'A/200', enc: (S) => [...b1(S.o2dn * 200), 0xff], dec: (A) => A / 200 },
     { pid: 0x1F, name: 'Run time since start', unit: 's', f: '(A×256)+B', enc: (S) => b2(S.running ? S.runT : 0), dec: (A, B) => A * 256 + B },
     { pid: 0x21, name: 'Distance with MIL on', unit: 'km', f: '(A×256)+B', enc: (S) => b2(S.distMil), dec: (A, B) => A * 256 + B },
     { pid: 0x2F, name: 'Fuel tank level', unit: '%', f: 'A×100/255', enc: (S) => b1(S.fuelLevel * 2.55), dec: (A) => (A * 100) / 255 },
     { pid: 0x33, name: 'Barometric pressure', unit: 'kPa', f: 'A', enc: (S) => b1(S.baro), dec: (A) => A },
     { pid: 0x42, name: 'Control module voltage', unit: 'V', f: '((A×256)+B)/1000', enc: (S) => b2(S.vbat * 1000), dec: (A, B) => (A * 256 + B) / 1000 },
-    { pid: 0x44, only: ['na', 'turbo'], name: 'Commanded equivalence ratio (λ)', unit: '', f: '((A×256)+B)×2/65536', enc: (S) => b2(((S.running ? S.lambdaTarget : 1) * 65536) / 2), dec: (A, B) => ((A * 256 + B) * 2) / 65536 },
+    { pid: 0x44, only: ['na', 'turbo', 'v12'], name: 'Commanded equivalence ratio (λ)', unit: '', f: '((A×256)+B)×2/65536', enc: (S) => b2(((S.running ? S.lambdaTarget : 1) * 65536) / 2), dec: (A, B) => ((A * 256 + B) * 2) / 65536 },
     { pid: 0x46, name: 'Ambient air temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.ambient + 40), dec: (A) => A - 40 },
     { pid: 0x5C, name: 'Engine oil temperature', unit: '°C', f: 'A − 40', enc: (S) => b1(S.oilT + 40), dec: (A) => A - 40 },
     { pid: 0x23, only: ['diesel'], name: 'Fuel rail pressure (diesel)', unit: 'kPa', f: '((A×256)+B)×10', enc: (S) => b2(S.rail * 10), dec: (A, B) => (A * 256 + B) * 10 },
@@ -108,7 +108,7 @@
     return { req: `01 ${hex(pid)}`, resp: ['41', hex(pid), ...data.map(hex)].join(' '), bytes: data, value };
   }
 
-  ECU.OBD = { PIDS, MONITORS, MONITORS_D, monitorsFor, byPid, hex, mode01, monitorStatus, fuelStatus, dtcBytes, dtcFromBytes, VIN: { na: 'SIMECU20NA0000001', turbo: 'SIMECU20TB0000001', diesel: 'SIMECU20TD0000001' } };
+  ECU.OBD = { PIDS, MONITORS, MONITORS_D, monitorsFor, byPid, hex, mode01, monitorStatus, fuelStatus, dtcBytes, dtcFromBytes, VIN: { na: 'SIMECU20NA0000001', turbo: 'SIMECU20TB0000001', diesel: 'SIMECU20TD0000001', v12: 'SIMECU65V12000001' } };
 
   // ================= browser UI =================
   const TABS = [
@@ -244,7 +244,7 @@
     } else {
       const vin = O.VIN[S.type];
       if (now - (this.lastVin || 0) > 1500) { this.log('09 02', '49 02 01 ' + vin.split('').map((c) => O.hex(c.charCodeAt(0))).join(' ').slice(0, 29) + '…', 'VIN'); this.lastVin = now; }
-      html = `<div class="scan-kv"><span>VIN</span><b class="mono">${vin}</b><span>${T('Calibration ID')}</span><b class="mono">ECUSIM-${S.type === 'turbo' ? '20T' : S.type === 'diesel' ? '20D' : '20N'}-${ECU.CAL_AXES.rpm.length}${Object.keys(S.cal).length}</b>
+      html = `<div class="scan-kv"><span>VIN</span><b class="mono">${vin}</b><span>${T('Calibration ID')}</span><b class="mono">ECUSIM-${S.type === 'turbo' ? '20T' : S.type === 'diesel' ? '20D' : S.type === 'v12' ? '65V' : '20N'}-${ECU.CAL_AXES.rpm.length}${Object.keys(S.cal).length}</b>
         <span>${T('ECU name')}</span><b>ECM-EngineControl</b><span>${T('Protocol')}</span><b class="mono">ISO 15765-4 CAN 11/500</b><span>${T('OBD standard')}</span><b>EOBD</b></div>`;
       this.decodeEl.innerHTML = `<b>${T('Mode 09 — vehicle information')}</b><div>${T('The VIN comes back as ASCII bytes spread over several CAN frames.')}</div>`;
     }

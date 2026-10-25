@@ -45,6 +45,7 @@
   const COL = { air: '#3fc6ff', hot: '#ff9f43', fuel: '#ffb020', exh: '#b0876a' };
 
   function build(type) {
+    const V12 = type === 'v12';
     const s = [];
     s.push(`<svg class="diag" viewBox="0 0 1100 470" xmlns="http://www.w3.org/2000/svg">`);
     s.push(`<defs>
@@ -141,9 +142,9 @@
     // engine block
     s.push(`<g><rect x="560" y="150" width="280" height="150" rx="14" fill="url(#gEng)" stroke="#2a3a4e" stroke-width="1.5"/>
       <rect x="560" y="150" width="280" height="30" rx="10" fill="#1c2a3c"/>
-      ${[590, 660, 730, 800].map((x, i) => `<g><rect x="${x - 24}" y="186" width="48" height="96" rx="8" fill="#0d141d" stroke="#2a3a4e"/><circle id="cylFire${i}" cx="${x}" cy="206" r="20" fill="url(#gFire)" opacity="0"/><rect id="cylPiston${i}" x="${x - 20}" y="230" width="40" height="14" rx="3" fill="#8796a8"/><text class="lbl-s" x="${x}" y="296" text-anchor="middle">${i + 1}</text>
-        <path id="injSpray${i}" d="M${x - 10} 140 l-6 12 l12 0 z" fill="#ffb020" opacity=".25"/></g>`).join('')}
-      <text class="lbl-c" x="700" y="170" text-anchor="middle">${T('Cylinder head · DOHC 16V')}</text></g>`);
+      ${(V12 ? [583, 630, 677, 724, 771, 818] : [590, 660, 730, 800]).map((x, i) => { const hw = V12 ? 19 : 24; return `<g><rect x="${x - hw}" y="186" width="${hw * 2}" height="96" rx="8" fill="#0d141d" stroke="#2a3a4e"/><circle id="cylFire${i}" cx="${x}" cy="206" r="${hw - 4}" fill="url(#gFire)" opacity="0"/><rect id="cylPiston${i}" x="${x - hw + 4}" y="230" width="${hw * 2 - 8}" height="14" rx="3" fill="#8796a8"/><text class="lbl-s" x="${x}" y="296" text-anchor="middle">${i + 1}</text>
+        <path id="injSpray${i}" d="M${x - 10} 140 l-6 12 l12 0 z" fill="#ffb020" opacity=".25"/></g>`; }).join('')}
+      <text class="lbl-c" x="700" y="170" text-anchor="middle">${T(V12 ? 'Bank A of 2 · DOHC 48V' : 'Cylinder head · DOHC 16V')}</text></g>`);
     // catalyst
     s.push(`<g class="petrol-only"><rect class="comp" x="110" y="330" width="70" height="40" rx="14"/>
       ${Array.from({ length: 6 }, (_, i) => `<line x1="${120 + i * 10}" y1="336" x2="${120 + i * 10}" y2="364" stroke="#3a4a5e" stroke-width="1.5"/>`).join('')}
@@ -212,7 +213,7 @@
     this.els = {};
     ['fAirNA', 'fAirT', 'fHot', 'fCool', 'fMani', 'fRun', 'fExhRun', 'fExhNA', 'fExhT1', 'fExhT2', 'fExh3', 'fTail', 'fWg', 'fFuel', 'fRail',
       'compWheel', 'turbWheel', 'bovPuff', 'wgFlap', 'thrPlate', 'catGlow', 'ecuLed', 'fuelLvlRect', 'fEgr', 'dpfSoot', 'dpfGlow', 'smokePuff'].forEach((id) => (this.els[id] = this.svg.getElementById(id)));
-    this.cyl = [0, 1, 2, 3].map((i) => ({ fire: this.svg.getElementById('cylFire' + i), piston: this.svg.getElementById('cylPiston' + i), inj: this.svg.getElementById('injSpray' + i) }));
+    this.cyl = Array.from({ length: this.type === 'v12' ? 6 : 4 }, (_, i) => i).map((i) => ({ fire: this.svg.getElementById('cylFire' + i), piston: this.svg.getElementById('cylPiston' + i), inj: this.svg.getElementById('injSpray' + i) }));
     this.nodes = {};
     const byId = Object.fromEntries(ECU.SENSORS.map((s) => [s.id, s]));
     this.svg.querySelectorAll('.snode').forEach((g) => {
@@ -304,9 +305,10 @@
       for (let c = 0; c < 4; c++) { const g = this.svg.getElementById('glowDot' + c); if (g) g.setAttribute('opacity', (S.glowTemp || 0) * 0.95); }
     }
 
-    // cylinders
-    for (let c = 0; c < 4; c++) {
-      const L = ECU.localAngle(theta, c);
+    // cylinders (the V12 shows bank A)
+    const off = ECU.geom(S.E).off;
+    for (let c = 0; c < this.cyl.length; c++) {
+      const L = ECU.localAngle(theta, c, off);
       const burn = S.ecuOn && S.sync > 0 && S.pw > 0 && !S.fuelCutAll && !S.injCut[c] && !(S.faults.misfire3 && c === 2);
       const fireOp = burn && L < 70 ? 1 - L / 70 : 0;
       this.cyl[c].fire.setAttribute('opacity', fireOp);

@@ -13,9 +13,9 @@
 
   function EngineView(canvas) {
     this.canvas = canvas;
-    this.knockPending = [false, false, false, false];
-    this.knockShown = [false, false, false, false];
-    this.prevKnock = [0, 0, 0, 0];
+    this.knockPending = new Array(12).fill(false);
+    this.knockShown = new Array(12).fill(false);
+    this.prevKnock = new Array(12).fill(0);
     this.t = 0;
   }
 
@@ -34,48 +34,62 @@
 
   EngineView.prototype.render = function (S, theta, dtVis) {
     this.t += dtVis;
-    const cw0 = this.canvas.clientWidth / 4;
-    const k = Math.max(0.62, Math.min(cw0 / 230, 1.3));
-    const H = Math.round(362 * k);
+    const Gm = ECU.geom(S.E);
+    this.off = Gm.off;
+    // the V12 is drawn as two rows: bank A (cyl 1–6) on top, bank B (7–12) below
+    const rows = Gm.n > 6 ? 2 : 1, perRow = Gm.n / rows;
+    const cw0 = this.canvas.clientWidth / perRow;
+    const k = Math.max(rows > 1 ? 0.5 : 0.62, Math.min(cw0 / 230, 1.3));
+    const rowH = Math.round(362 * k);
+    const H = rowH * rows;
     const { ctx, w } = fit(this.canvas, H);
     ctx.clearRect(0, 0, w, H);
-    const cw = w / 4;
+    const cw = w / perRow;
 
     // knock latching: show knock at the next combustion of that cylinder
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < Gm.n; c++) {
       if (S.knockTrue[c] > this.prevKnock[c] + 0.05) this.knockPending[c] = true;
       this.prevKnock[c] = S.knockTrue[c];
     }
 
-    // shared shafts
-    ctx.save();
-    ctx.scale(1, 1);
-    const yc = G.yc * k, camY = G.camY * k;
-    ctx.strokeStyle = '#223043';
-    ctx.lineWidth = 7 * k;
-    ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(10, yc); ctx.lineTo(w - 10, yc); ctx.stroke();
-    ctx.lineWidth = 4 * k;
-    ctx.strokeStyle = '#1f2b3b';
-    ctx.beginPath(); ctx.moveTo(10, camY); ctx.lineTo(w - 10, camY); ctx.stroke();
-    ctx.restore();
-
-    for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < rows; r++) {
+      const y0 = r * rowH;
+      // shared shafts
       ctx.save();
-      ctx.translate(cw * c + cw / 2, 0);
-      ctx.scale(k, k);
-      this.drawCylinder(ctx, S, theta, c, cw / k);
+      const yc = y0 + G.yc * k, camY = y0 + G.camY * k;
+      ctx.strokeStyle = '#223043';
+      ctx.lineWidth = 7 * k;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(10, yc); ctx.lineTo(w - 10, yc); ctx.stroke();
+      ctx.lineWidth = 4 * k;
+      ctx.strokeStyle = '#1f2b3b';
+      ctx.beginPath(); ctx.moveTo(10, camY); ctx.lineTo(w - 10, camY); ctx.stroke();
       ctx.restore();
-      if (c > 0) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(cw * c, 8); ctx.lineTo(cw * c, H - 8); ctx.stroke();
+
+      for (let i = 0; i < perRow; i++) {
+        const c = r * perRow + i;
+        ctx.save();
+        ctx.translate(cw * i + cw / 2, y0);
+        ctx.scale(k, k);
+        this.drawCylinder(ctx, S, theta, c, cw / k);
+        ctx.restore();
+        if (i > 0) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(cw * i, y0 + 8); ctx.lineTo(cw * i, y0 + rowH - 8); ctx.stroke();
+        }
+      }
+      if (rows > 1) {
+        ctx.fillStyle = 'rgba(159,177,199,0.75)';
+        ctx.font = '800 11px Inter, sans-serif';
+        ctx.fillText(T('BANK {b}', { b: r ? 'B' : 'A' }), 8, y0 + 16);
+        if (r > 0) { ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(0, y0 + 0.5); ctx.lineTo(w, y0 + 0.5); ctx.stroke(); }
       }
     }
   };
 
   EngineView.prototype.drawCylinder = function (ctx, S, theta, c, cellW) {
-    const L = ECU.localAngle(theta, c);
+    const L = ECU.localAngle(theta, c, this.off);
     const stroke = ECU.strokeOf(L);
     const cs = this.cylState(S, c);
     const a = ((L % 360) * Math.PI) / 180;
@@ -503,8 +517,9 @@
     }
     if (S.sync === 0) return tag('#3a2a0a', '#ffc043', 'CRANKING') + T('Starter spins the engine. The ECU counts CKP teeth, waiting for the <b>missing-tooth gap</b> — no fuel or spark until it knows the crank position.');
     const items = [];
-    for (let c = 0; c < 4; c++) {
-      const L = ECU.localAngle(theta, c);
+    const Gm = ECU.geom(S.E);
+    for (let c = 0; c < Gm.n; c++) {
+      const L = ECU.localAngle(theta, c, Gm.off);
       const adv = S.sparkCyl[c];
       const Ls = (720 - adv + 720) % 720;
       const since = (L - Ls + 720) % 720;
@@ -519,7 +534,7 @@
       if (L > 540 && L < 560) items.push({ p: 1, t: tag('#2a1a3a', '#b98cff', 'COMP {c}', { c: n }) + T('Intake valve {c} closes — the trapped air mass is what MAF/MAP predicted. Compression begins.', { c: n }) });
     }
     const tooth = ECU.ckpTooth(theta);
-    if (tooth.missing) items.push({ p: 2.8, t: tag('#0a3a2a', '#2ee6c5', 'CKP GAP') + T('The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & 4.') });
+    if (tooth.missing) items.push({ p: 2.8, t: tag('#0a3a2a', '#2ee6c5', 'CKP GAP') + T('The missing-tooth gap passes the crank sensor → the ECU re-confirms: next tooth = 90° BTDC of cylinders 1 & {b}.', { b: Gm.order[Gm.n / 2] }) });
     if (ECU.cmpSignal(theta, S.vvt) && !S.faults.cmp) items.push({ p: 1.5, t: tag('#2a1a3a', '#b98cff', 'CMP') + T('Cam tab under the sensor — confirms cylinder 1 is approaching its <b>compression</b> TDC (not exhaust).') });
     items.sort((a, b) => b.p - a.p);
     return items.length ? items[0].t : T('Crank at {a}° — between events. Tooth #{n} under the CKP sensor.', { a: theta.toFixed(0), n: tooth.idx + 1 });

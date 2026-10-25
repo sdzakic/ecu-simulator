@@ -25,7 +25,7 @@ test('O2 sensor switches ~0.5–2 Hz in closed loop', () => {
 
 test('NA full throttle: power enrichment and plausible torque', () => {
   const S = started('na');
-  S.gear = 2; S.pedal = 100;
+  S.gear = 2; S.pedal = 100; S.v = 6; // rolling in 2nd
   let peak = 0;
   run(S, 6, (s) => { peak = Math.max(peak, s.torque); });
   assert.ok(S.lambdaTarget < 0.9, 'rich target at WOT');
@@ -60,7 +60,7 @@ test('rev limiter and decel fuel cut', () => {
 test('knock: low octane knocks and gets retarded, high octane does not', () => {
   const pull = (octane) => {
     const S = started('na', { octane });
-    S.gear = 4; S.pedal = 100; S.grade = 10;
+    S.gear = 4; S.pedal = 100; S.grade = 10; S.v = 12; // lugging uphill in 4th
     const k0 = S.knockCount;
     run(S, 12);
     return { knocks: S.knockCount - k0, retard: Math.max(...S.knockRetard) };

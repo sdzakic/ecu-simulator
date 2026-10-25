@@ -31,14 +31,41 @@
       id: 'turbo', name: '2.0 Turbo', label: 'Turbocharged 2.0 L I4 (intercooled)', turbo: true,
       vd: 0.002, cr: 9.6, injFlow: 5.6, injCc: 440, fuelBase: 4.0, redline: 6500,
       etaTh: 0.36, klOffset: 20, idle: 800, idleFF: 5.5, thrArea: 3.3e-3, airRef: 0.6,
+      clutchCap: 480, tcK: 135,
       ve(rpm) { return 0.66 + 0.26 * Math.exp(-(((rpm - 3600) / 3400) ** 2)); },
     },
+    // 65° V12, two banks of six (cyl 1–6 bank A, 7–12 bank B), even firing every 60°, twin throttle bodies
+    v12: {
+      id: 'v12', name: '6.5 V12', label: 'Naturally aspirated 6.5 L V12', turbo: false, cyl: 12, banks: 2,
+      firingOrder: [1, 7, 5, 11, 3, 9, 6, 12, 2, 8, 4, 10],
+      vd: 0.0065, cr: 13.6, injFlow: 6.4, injCc: 520, fuelBase: 5.0, redline: 9200,
+      etaTh: 0.45, klOffset: 0, idle: 900, idleFF: 3.6, thrArea: 9.6e-3, airRef: 0.65,
+      fricK: 2.1, J: 0.24, starterT: 300, compPulse: 30, flowRef: 320, vMan: 0.008, mafFull: 760,
+      heatK: 7600, radK: 1100, coolMass: 3600, clutchCap: 1100, tcK: 98, mass: 1650, finalK: 0.85,
+      ve(rpm) { return 0.62 + 0.46 * Math.exp(-(((rpm - 7000) / 4300) ** 2)); },
+    },
   };
+  {
+    const V = ENGINES.v12;
+    V.cylOffset = V.firingOrder.map((_, i) => 60 * V.firingOrder.indexOf(i + 1));
+  }
+  ENGINES.na.clutchCap = 340; ENGINES.na.tcK = 160;
   ECU.ENGINES = ENGINES;
 
-  const GEAR_RATIOS = [0, 3.5, 2.1, 1.45, 1.05, 0.82];
-  const FINAL = 3.9, RW = 0.31, MASS = 1400, J_ENG = 0.16;
-  ECU.GEAR_RATIOS = GEAR_RATIOS;
+  // 6-speed manual (automated clutch) or 8-speed torque-converter automatic
+  const GEARBOX = {
+    manual: { ratios: [0, 3.5, 2.1, 1.45, 1.1, 0.89, 0.74], final: 3.9 },
+    auto: { ratios: [0, 4.7, 3.13, 2.1, 1.67, 1.29, 1.0, 0.84, 0.67], final: 3.15 },
+  };
+  ECU.GEARBOX = GEARBOX;
+  const RW = 0.31;
+  function carOf(S) {
+    const gb = GEARBOX[S.trans] || GEARBOX.manual, E = S.E;
+    return { ratios: gb.ratios, final: gb.final * (E.finalK || 1), mass: E.mass || 1400, top: gb.ratios.length - 1 };
+  }
+  ECU.carOf = carOf;
+  // what the cluster shows: N / 1–6, or N / D1–D8 on the automatic
+  ECU.gearText = (S) => (S.trans === 'auto' ? (S.sel === 'D' && S.gear > 0 ? 'D' + S.gear : 'N') : S.gear === 0 ? 'N' : String(S.gear));
 
   function phi(pr) {
     if (pr <= 0.528) return 0.6847;
@@ -86,6 +113,7 @@
     loadNA: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110],
     loadT: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200],
     pedal: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    rpmHi: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500],
   };
   ECU.CAL_AXES = AX;
   const r1 = (v, st) => Math.round(v / st) * st;
@@ -96,11 +124,12 @@
   function makeCal(E) {
     if (E.diesel) return ECU.makeDieselCal(E, { table, mbt });
     const load = E.turbo ? AX.loadT : AX.loadNA;
+    const rpmAx = E.redline > 7000 ? AX.rpmHi : AX.rpm;
     const cal = {
       // spark advance (°BTDC) at reference conditions: 25 °C intake, 90 °C coolant, 95 RON, 1.5° knock margin
-      spark: table(AX.rpm, load, (rpm, l) => Math.min(mbt(rpm, l / 100, E), klPure(E, rpm, l / 100, 95, 25, 90) - 1.5), 0.5),
+      spark: table(rpmAx, load, (rpm, l) => Math.min(mbt(rpm, l / 100, E), klPure(E, rpm, l / 100, 95, 25, 90) - 1.5), 0.5),
       // target lambda
-      lambda: table(AX.rpm, load, (rpm, l) => {
+      lambda: table(rpmAx, load, (rpm, l) => {
         if (E.turbo) return l > 95 ? lerp(0.98, 0.78, clamp((l - 95) / 80, 0, 1)) : 1;
         return l >= 85 ? 0.87 : l >= 75 ? 0.93 : 1;
       }, 0.01),
@@ -137,6 +166,8 @@
 
   function createState(type, prev) {
     const E = ENGINES[type];
+    const n = E.cyl || 4;
+    const zeros = () => new Array(n).fill(0);
     const S = {
       type, E, t: 0,
       key: 'OFF', ecuOn: false, bootT: 0, startHoldT: 0,
@@ -146,8 +177,9 @@
       airGs: 0, mafTrue: 0, airPerCyl: 0, fuelRateGs: 0,
       ambient: 20, iat: 22, chargeT: 20, compOutT: 20, ect: 20, oilT: 20, oilP: 0, egt: 20,
       fuelP: 0, vbat: 12.6, soc: 1, fuelLevel: 62,
-      lambda: 1, lambdaCyl: [1, 1, 1, 1], lamHist: [], lamSensed: 1, o2v: 0.45, o2dn: 0.45, o2Temp: 20, catOsc: 0.5,
+      lambda: 1, lambdaCyl: new Array(n).fill(1), lamHist: [], lamSensed: 1, o2v: 0.45, o2dn: 0.45, o2Temp: 20, catOsc: 0.5,
       torqueInd: 0, torque: 0, power: 0, v: 0, gear: 0,
+      trans: 'manual', sel: 'N', prevGear: 0, clutch: 0, clutchState: 'open', clutchRamp: 0, clutchLocked: false, shiftT: 0, shiftCool: 0, lockCap: 0, tqRed: 0, Fdrive: 0, slipRpm: 0, tcRatio: 1,
       pedal: 0, brake: false, ac: false, lights: false, grade: 0, octane: 95, boostTarget: 1.0, ckpType: 'vr',
       faults: {},
       sync: 0, syncAngle: 0,
@@ -155,14 +187,14 @@
       fuelMg: 0, pw: 0, injDuty: 0, deadtime: 0.7, eoi: 340, batch: false,
       lambdaTarget: 1, ltReason: { k: 'stoichiometric (catalyst window)' }, ltPower: false, stft: 0, ltft: 0, closedLoop: false, olReason: { k: 'engine not running' },
       o2Rich: false, o2Switches: [], o2Freq: 0, o2DeadT: 0, o2Dead: false,
-      spark: 0, sparkBase: 0, sparkIdle: 0, sparkCyl: [0, 0, 0, 0], catHeat: 0, mbtNow: 0, klNow: 0,
-      knockRetard: [0, 0, 0, 0], knockFlash: [0, 0, 0, 0], knockTrue: [0, 0, 0, 0], knockCount: 0, lastKnockT: -99, dwell: 3,
+      spark: 0, sparkBase: 0, sparkIdle: 0, sparkCyl: zeros(), catHeat: 0, mbtNow: 0, klNow: 0,
+      knockRetard: zeros(), knockFlash: zeros(), knockTrue: zeros(), knockCount: 0, lastKnockT: -99, dwell: 3,
       idleTarget: 800, idleI: 0, idleAdder: 5.5, idleActive: false,
       dfco: false, dfcoT: 0, revCut: false, overboostCut: false, overboostT: 0, underboostT: 0, limp: false,
       ae: 0, prevThr: 6,
       afterStart: 0, runT: 0, running: false, cranking: false, startEct: 20, stallT: 0,
       fuelPump: false, primeT: 0, fan: false, vvt: 0,
-      injCut: [false, false, false, false], misfireAcc: 0, misfireActive: false, crankJitter: [0, 0, 0, 0],
+      injCut: new Array(n).fill(false), misfireAcc: 0, misfireActive: false, crankJitter: zeros(),
       dtc: {}, log: [], logSeq: 0,
       catMon: { up: 0, dn: 0 }, lastUpRich: false, lastDnRich: false,
       elecW: 0, loadCalc: 0, loadPct: 0, loadSrc: 'MAF', airCylMeas: 0,
@@ -172,7 +204,7 @@
     };
     if (prev) {
       // carry user inputs across engine switch
-      ['ambient', 'octane', 'boostTarget', 'ckpType', 'ac', 'lights', 'grade'].forEach((k) => (S[k] = prev[k]));
+      ['ambient', 'octane', 'boostTarget', 'ckpType', 'ac', 'lights', 'grade', 'trans'].forEach((k) => (S[k] = prev[k]));
       S.ect = S.oilT = S.iat = S.chargeT = S.egt = S.ambient;
       S.log = prev.log;
       S.logSeq = prev.logSeq;
@@ -231,7 +263,7 @@
     S.distMil = 0;
     resetMonitors(S); // non-continuous monitors must run again before the car is ready for inspection
     S.o2Dead = false;
-    S.injCut = [false, false, false, false];
+    S.injCut = S.injCut.map(() => false);
     S.misfireAcc = 0;
     S.ltft = 0;
     log(S, 'Scan tool: DTCs cleared, adaptations reset.', 'ok');
@@ -257,9 +289,9 @@
     return { T_ambK: S.ambient + 273.15, dynoOn };
   }
 
-  // friction, pumping, accessories, starter, compression pulses, torque-converter coupling, crank dynamics
+  // friction, pumping, accessories, starter, compression pulses, gearbox coupling, crank dynamics
   function rotation(S, dt, Tind, dynoOn, isMisfiring) {
-    const E = S.E, F = S.faults;
+    const E = S.E, F = S.faults, n = E.cyl || 4;
     const omega = (S.rpm * Math.PI) / 30;
     const cold = 1 + Math.max(0, 60 - S.oilT) / 90;
     const Tfric = S.rpm > 0.5 ? (7 + 0.0028 * S.rpm + 2.5e-7 * S.rpm * S.rpm) * cold * (E.fricK || 1) : 0;
@@ -273,21 +305,18 @@
 
     S.cranking = S.key === 'START';
     const Tst = S.cranking ? Math.max(0, (E.starterT || 115) * (1 - S.rpm / 320)) : 0;
-    const Tcomp = S.rpm > 1 && S.rpm < 700 ? -(E.compPulse || 22) * Math.sin((2 * S.crank * Math.PI) / 180) * (S.map / 100) : 0;
+    // one compression stroke every 720/n degrees
+    const Tcomp = S.rpm > 1 && S.rpm < 700 ? -(E.compPulse || 22) * Math.sin(((n / 2) * S.crank * Math.PI) / 180) * (S.map / 100) : 0;
 
-    // torque converter style coupling to the car
-    let Tc = 0;
-    const g = S.gear;
-    if (g > 0 && S.rpm > 1) {
-      const wIn = (S.v / RW) * GEAR_RATIOS[g] * FINAL;
-      const sr = wIn / Math.max(omega, 1);
-      Tc = (S.rpm / 165) ** 2 * clamp((1 - sr) * 4, -2.5, 1);
-    }
+    gearboxStep(S, dt);
+    if (S.tqRed > 0 && Tind > 0) Tind *= 1 - S.tqRed; // TCU asked the ECU to cut torque for the shift
+    const Tfree = Tind - Tfric - Tpump - Talt - Tac + Tst + Tcomp;
+    const Tload = driveline(S, dt, omega, Tfree);
 
     S.torqueInd = Tind;
     S.torque = Tind - Tfric - Tpump;
-    const Tnet = Tind - Tfric - Tpump - Talt - Tac - Tc + Tst + Tcomp;
-    let newOmega = omega + (Tnet / J_ENG) * dt;
+    const J = E.J || 0.16;
+    let newOmega = omega + ((Tfree - Tload) / J) * dt;
     if (S.rpm < 120 && !S.cranking && Tind < 5) newOmega -= 60 * dt;
     newOmega = Math.max(0, newOmega);
     if (dynoOn && S.rpm > 300) newOmega = (S.dyno.rpm * Math.PI) / 30; // dyno absorbs the torque and dictates speed
@@ -296,24 +325,131 @@
     S.power = Math.max(0, S.torque) * newOmega / 1000;
 
     // misfiring cylinders → crank speed dips (scope "crank speed" row)
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < n; c++) {
       const target = isMisfiring(c) ? -1 : 0;
       S.crankJitter[c] += (target - S.crankJitter[c]) * (1 - Math.exp(-dt / 0.2));
     }
-    vehicleStep(S, dt, Tc);
+    vehicleStep(S, dt, S.Fdrive);
   }
 
-  function vehicleStep(S, dt, Tc) {
-    const g = S.gear;
-    const Fdrive = g > 0 ? (Tc * GEAR_RATIOS[g] * FINAL * 0.9) / RW : 0;
-    const Faero = 0.5 * 1.2 * 0.62 * S.v * S.v;
-    const Fgrade = MASS * 9.81 * S.grade / 100;
-    const Froll = 190;
-    const Fbrake = S.brake ? 9500 : 0;
-    let net = Fdrive - Faero - Fgrade;
-    if (S.v > 0.05) net -= Froll + Fbrake;
-    else if (Math.abs(net) < Froll + Fbrake) net = 0;
-    S.v = Math.max(0, S.v + (net / (MASS * 1.08)) * dt);
+  function vehicleForces(S) {
+    const m = carOf(S).mass;
+    return { aero: 0.5 * 1.2 * 0.62 * S.v * S.v, grade: (m * 9.81 * S.grade) / 100, roll: 190 * (m / 1400), brake: S.brake ? 9500 * (m / 1400) : 0 };
+  }
+
+  /* Gearbox logic (what the driver / TCU does). Manual: the simulator works the clutch for you —
+     it opens for each shift and feeds in with the revs when pulling away, and opens before a stall.
+     Automatic: shift schedule by pedal and speed, kickdown, torque converter lock-up, and a torque
+     reduction request to the ECU during each shift. */
+  function gearboxStep(S, dt) {
+    const E = S.E, car = carOf(S), top = car.top;
+    const inRpm = (g) => (((S.v / RW) * car.ratios[g] * car.final) * 30) / Math.PI;
+    S.shiftT = Math.max(0, S.shiftT - dt);
+    S.shiftCool = Math.max(0, S.shiftCool - dt);
+    if (S.gear > top) S.gear = top;
+    if (S.trans === 'auto') {
+      S.clutch = 0;
+      if (S.sel !== 'D') { S.gear = 0; S.prevGear = 0; S.lockCap = 0; S.tqRed = 0; return; }
+      if (S.gear === 0) { S.gear = 1; S.shiftCool = 0.6; }
+      const p = S.pedal / 100, red = E.redline;
+      // upshift point rises with pedal: short-shift when cruising, near redline at full throttle
+      const up = lerp(E.diesel ? 1500 : 1700, red * 0.9, Math.pow(p, 1.4));
+      if (S.shiftCool === 0 && S.running && !(S.dyno && S.dyno.phase !== 'done' && S.dyno.phase !== 'aborted')) {
+        let tgt = S.gear, kick = false;
+        if (p > 0.95 && S.gear > 1) {
+          while (tgt > 1 && inRpm(tgt - 1) < red * 0.82) tgt--;
+          kick = tgt < S.gear;
+        }
+        if (!kick) {
+          if (S.gear < top && inRpm(S.gear) > up && inRpm(S.gear + 1) > E.idle + 200) tgt = S.gear + 1;
+          else if (S.gear > 1 && inRpm(S.gear) < Math.max(E.idle + 150, up * 0.45)) tgt = S.gear - 1;
+        }
+        if (tgt !== S.gear) {
+          if (kick) log(S, 'Kickdown: pedal floored → TCU drops from {a} to {b}.', 'info', { a: S.gear, b: tgt });
+          else if (!S.flags.shiftLogged) { log(S, 'TCU shift {a} → {b}: the ECU retards spark for a moment so the shift is smooth (torque intervention).', 'info', { a: S.gear, b: tgt }); S.flags.shiftLogged = true; }
+          S.gear = tgt; S.shiftT = 0.28; S.shiftCool = kick ? 0.5 : 1.0; S.lockCap = 0;
+        }
+      }
+      S.prevGear = S.gear;
+      const wantLock = S.gear >= 3 && inRpm(S.gear) > 1150 && S.shiftT === 0 && p < 0.85;
+      const capMax = E.clutchCap || 340;
+      S.lockCap = wantLock ? Math.min(capMax, S.lockCap + (capMax * dt) / 0.6) : 0;
+      edge(S, 'lockup', S.lockCap >= capMax && S.clutchLocked, 'Torque converter lock-up clutch closed: engine and gearbox now turn together — no more slip.', null, 'info', 20);
+      S.tqRed = S.shiftT > 0 ? 0.4 * Math.sin((Math.PI * S.shiftT) / 0.28) : 0;
+      return;
+    }
+    // ---- manual with automated clutch ----
+    S.tqRed = 0; S.lockCap = 0;
+    if (S.gear !== S.prevGear) {
+      if (S.gear > 0) { S.shiftT = 0.18; S.clutchRamp = 0; S.launch = null; }
+      S.clutchState = 'open'; S.prevGear = S.gear;
+    }
+    if (S.gear === 0 || S.shiftT > 0) {
+      S.clutch = 0;
+      if (S.shiftT > 0 && S.v > 1) S.tqRed = 0.9; // lift off while the clutch is open, so the revs don't flare
+      return;
+    }
+    const rin = inRpm(S.gear), idle = E.idle;
+    if (S.clutchState === 'locked') {
+      S.clutch = 1;
+      if (S.rpm < idle * 0.72) { S.clutchState = 'slip'; S.clutchRamp = 0; S.launch = null; log(S, 'Revs falling toward a stall → clutch pressed (gear {g} too high for this speed).', 'warn', { g: S.gear }); }
+      return;
+    }
+    S.clutchState = 'slip';
+    if (S.launch == null) S.launch = rin < idle + 200; // pulling away vs. a shift on the move
+    S.clutchRamp = Math.min(1, S.clutchRamp + dt / 0.35);
+    // pulling away: the bite follows the revs, like a driver feeding the clutch in (more pedal → higher launch revs)
+    // …and the driver lets it out fully within about a second and a half so the clutch doesn't cook
+    S.slipT = S.launch ? (S.slipT || 0) + dt : 0;
+    const launch = clamp((S.rpm - idle - 60 - 1700 * Math.pow(S.pedal / 100, 1.5) * Math.max(0, 1 - S.slipT / 1.6)) / 500, 0, 1) + (S.rpm > idle * 0.92 ? S.slipT / 2.5 : 0);
+    let e = S.launch ? Math.min(S.clutchRamp, launch) : S.clutchRamp;
+    if (S.rpm < idle * 0.8) { e = 0; S.clutchRamp = 0; S.launch = null; }
+    S.clutch = e;
+    if (e > 0.05 && Math.abs(S.rpm - rin) < 50) { S.clutchState = 'locked'; S.clutch = 1; S.launch = null; }
+  }
+
+  /* Coupling between crank and wheels. Returns the load torque on the crank; sets S.Fdrive (N).
+     Clutches (manual clutch, converter lock-up) are solved implicitly: the torque that would make
+     both sides turn together this step, capped by what the clutch can carry → stable at 240 Hz. */
+  function driveline(S, dt, omega, Tfree) {
+    const E = S.E, car = carOf(S), g = S.gear;
+    S.Fdrive = 0;
+    if (g <= 0) { S.slipRpm = 0; S.clutchLocked = false; return 0; }
+    const G = car.ratios[g] * car.final, eff = 0.9;
+    const J = E.J || 0.16, M = car.mass * 1.08;
+    const ww = (S.v / RW) * G; // gearbox input speed, rad/s
+    S.slipRpm = ((omega - ww) * 30) / Math.PI;
+    let Tconv = 0, Tturb = 0;
+    if (S.trans === 'auto') {
+      // torque converter: impeller torque ∝ (speed / K)², multiplied up to 2× at stall
+      const sr = ww / Math.max(omega, 1);
+      Tconv = (S.rpm / (E.tcK || 160)) ** 2 * clamp((1 - sr) * 4, -2.5, 1);
+      S.tcRatio = Tconv > 0 ? lerp(2.0, 1.0, clamp(sr / 0.85, 0, 1)) : 1;
+      Tturb = Tconv * S.tcRatio;
+    }
+    const cap = S.trans === 'auto' ? S.lockCap : (E.clutchCap || 340) * S.clutch;
+    let Tcl = 0;
+    S.clutchLocked = false;
+    if (cap > 0) {
+      const F = vehicleForces(S), moving = S.v > 0.05;
+      const be = 1 / J, bw = (G * G * eff) / (RW * RW * M);
+      const ae = (Tfree - Tconv) / J;
+      const aw = ((((Tturb * G * eff) / RW) - (F.aero + F.grade + (moving ? F.roll + F.brake : 0))) / M) * (G / RW);
+      let Tl = (omega - ww + (ae - aw) * dt) / ((be + bw) * dt);
+      if (!moving && Math.abs(((Tturb + Tl) * G * eff) / RW - F.grade) < F.roll + F.brake) Tl = (omega + ae * dt) / (be * dt); // brakes hold the car
+      Tcl = clamp(Tl, -cap, cap);
+      S.clutchLocked = Math.abs(Tl) <= cap;
+    }
+    S.Fdrive = ((Tturb + Tcl) * G * eff) / RW;
+    return Tconv + Tcl;
+  }
+
+  function vehicleStep(S, dt, Fdrive) {
+    const F = vehicleForces(S), m = carOf(S).mass;
+    let net = Fdrive - F.aero - F.grade;
+    if (S.v > 0.05) net -= F.roll + F.brake;
+    else if (Math.abs(net) < F.roll + F.brake) net = 0;
+    S.v = Math.max(0, S.v + (net / (m * 1.08)) * dt);
   }
 
   // turbocharger: wgPos = wastegate opening (petrol) or VGT vane opening (diesel); 1 = least boost
@@ -358,9 +494,9 @@
     const heatIn = (S.E.heatK || 6900) * Math.pow(S.fuelRateGs, 0.6) + (S.ac && S.running ? 1200 : 0);
     const thermoOpen = F.thermostat ? 1 : clamp((S.ect - 86) / 8, 0, 1);
     const airF = 0.25 + (S.v / 25) + (S.fan ? 1.0 : 0);
-    const radLoss = 520 * thermoOpen * (S.ect - S.ambient) * airF;
+    const radLoss = (S.E.radK || 520) * thermoOpen * (S.ect - S.ambient) * airF;
     const baseLoss = 14 * (S.ect - S.ambient);
-    S.ect += ((heatIn - radLoss - baseLoss) / 1900) * dt;
+    S.ect += ((heatIn - radLoss - baseLoss) / (S.E.coolMass || 1900)) * dt;
     const oilTarget = S.running ? S.ect + 6 + 12 * clamp(loadN, 0, 1.5) : S.ect;
     S.oilT += (oilTarget - S.oilT) * (dt / 14);
 
@@ -401,7 +537,7 @@
       pUp = S.boostP - 1.5 * (S.airGs / 150) ** 2;
       tIntK = S.chargeT + 273.15 + 4;
     } else {
-      pUp = S.baro - 0.8 * (S.airGs / 100) ** 2;
+      pUp = S.baro - 0.8 * (S.airGs / (E.flowRef || 100)) ** 2;
       tIntK = S.iat + 273.15;
     }
     const thrFrac = 1 - Math.cos((clamp(S.throttle, 0, 100) / 100) * Math.PI / 2);
@@ -425,14 +561,15 @@
     const airKg = mEng(S.map);
     S.airGs = airKg * 1000;
     // mass entering the manifold = engine draw + manifold filling (dP/dt · V/RT)
-    const fill = (0.003 / (R * tIntK)) * dPdt * 1000;
+    const fill = ((E.vMan || 0.003) / (R * tIntK)) * dPdt * 1000;
     const inflow = Math.max(0, airKg + fill) * 1000;
     const oT = orifice(Athr, pUp, S.map, tIntK), oL = orifice(Aleak, S.baro, S.map, T_ambK);
     const meteredShare = oT + oL > 0 ? oT / (oT + oL) : 1;
     const mT = inflow * meteredShare;
     const boostRelNow = S.boostP - S.baro;
     S.mafTrue = E.turbo && F.boostleak && boostRelNow > 5 ? mT * 1.18 : mT;
-    S.airPerCyl = S.rpm > 5 ? S.airGs / (S.rpm / 30) : 0;
+    const nCyl = E.cyl || 4;
+    S.airPerCyl = S.rpm > 5 ? S.airGs / ((S.rpm * nCyl) / 120) : 0;
     const loadN = S.airPerCyl / E.airRef;
 
     /* ================= FUEL DELIVERY & COMBUSTION ================= */
@@ -442,7 +579,7 @@
     const maxFuelMg = Math.max(0, (cycleMs - S.deadtime) * E.injFlow);
     let Tind = 0, airSum = 0, fuelSeen = 0, fuelTotalMg = 0;
     const canFire = S.ecuOn && S.sync > 0 && S.rpm > 60 && !F.ckp;
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < nCyl; c++) {
       let mg = 0;
       if (canFire && !S.injCut[c] && !S.fuelCutAll) mg = Math.min(S.fuelMg, maxFuelMg) * fuelPfac;
       fuelTotalMg += mg;
@@ -466,7 +603,7 @@
 
     /* ================= KNOCK (physical) ================= */
     if (canFire && Tind > 0) {
-      for (let c = 0; c < 4; c++) {
+      for (let c = 0; c < nCyl; c++) {
         if (S.injCut[c] || (F.misfire3 && c === 2)) continue;
         const kl = knockLimit(S, S.octane, loadN, c === 2 ? -1.2 : 0);
         const margin = S.sparkCyl[c] - kl;
@@ -489,7 +626,7 @@
         }
       }
     }
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < nCyl; c++) {
       S.knockFlash[c] = Math.max(0, S.knockFlash[c] - dt * 2.5);
       S.knockRetard[c] = Math.max(0, S.knockRetard[c] - dt * 0.7);
     }
@@ -575,7 +712,7 @@
 
     if (!S.ecuOn) {
       S.fuelMg = 0; S.pw = 0; S.injDuty = 0; S.fuelPump = false; S.closedLoop = false; S.olReason = { k: 'ECU off' };
-      S.fan = false; S.sparkCyl = [0, 0, 0, 0]; S.spark = 0; S.running = false; S.dfco = false; S.revCut = false;
+      S.fan = false; S.sparkCyl.fill(0); S.spark = 0; S.running = false; S.dfco = false; S.revCut = false;
       S.fuelCutAll = true;
       S.throttleCmd = 7;
       S.startHoldT = 0;
@@ -649,10 +786,12 @@
     // ---------- Idle speed control ----------
     S.idleTarget = E.idle + clamp((60 - ectU) * 6, 0, 350) + (S.ac ? 90 : 0);
     S.idleActive = S.pedal < 1 && !S.dfco && S.running;
+    // automatic in D: the converter loads the engine at a standstill → extra idle air up front
+    const ffDrive = S.trans === 'auto' && S.gear > 0 ? E.idleFF * 0.45 : 0;
     if (S.idleActive) {
       const err = S.idleTarget - sens.rpm;
       S.idleI = clamp(S.idleI + err * 0.006 * dt, -2.5, 9);
-      S.idleAdder = clamp(E.idleFF + err * 0.005 + S.idleI, 0.5, 20);
+      S.idleAdder = clamp(E.idleFF + ffDrive + err * 0.005 + S.idleI, 0.5, 20);
       S.sparkIdle = clamp(err * 0.02, -6, 6);
     } else {
       if (!S.running) S.idleAdder = E.idleFF + 1.5 + clamp((20 - ectU) * 0.05, 0, 2);
@@ -664,7 +803,7 @@
     const p = S.pedal / 100;
     let thr = 100 * Math.pow(p, 1.25) + S.idleAdder * (1 - p);
     if (S.brake && p > 0.05 && S.v > 1) thr = S.idleAdder; // brake override
-    if (S.dfco || (S.running && p < 0.01)) thr = Math.max(thr, E.idleFF + S.idleI * 0.5); // dashpot
+    if (S.dfco || (S.running && p < 0.01)) thr = Math.max(thr, E.idleFF + ffDrive + S.idleI * 0.5); // dashpot
     if (S.overboostCut) thr = Math.min(thr, 4);
     S.throttleCmd = clamp(thr, 0, 100);
     const dThr = (S.throttle - S.prevThr) / dt;
@@ -675,12 +814,13 @@
     // ---------- Load calculation ----------
     const rpmE = Math.max(sens.rpm, 1);
     let airCyl;
-    const sdAir = () => (veAt(E, sens.rpm, sens.map) * sens.map * 1000 * (E.vd / 4)) / (R * (iatU + 273.15)) * 1000;
+    const nCyl = E.cyl || 4;
+    const sdAir = () => (veAt(E, sens.rpm, sens.map) * sens.map * 1000 * (E.vd / nCyl)) / (R * (iatU + 273.15)) * 1000;
     if (sens.rpm < 450 && S.cranking) { airCyl = F.map ? 0.45 : sdAir(); S.loadSrc = 'MAP (cranking)'; }
     else if (!F.maf) {
-      airCyl = sens.maf / (rpmE / 30); S.loadSrc = 'MAF';
+      airCyl = sens.maf / ((rpmE * nCyl) / 120); S.loadSrc = 'MAF';
       // manifold-filling correction: MAF sees air before the cylinders do → cap with speed-density
-      const cap = (F.map ? (veAt(E, sens.rpm, S.boostP) * S.boostP * 1000 * (E.vd / 4)) / (R * (iatU + 273.15)) * 1000 : sdAir()) * 1.08;
+      const cap = (F.map ? (veAt(E, sens.rpm, S.boostP) * S.boostP * 1000 * (E.vd / nCyl)) / (R * (iatU + 273.15)) * 1000 : sdAir()) * 1.08;
       airCyl = Math.min(airCyl, cap);
     }
     else if (!F.map) { airCyl = sdAir(); S.loadSrc = 'MAP speed-density'; }
@@ -773,10 +913,10 @@
     S.catHeat = S.startEct < 40 && S.runT < 25 && S.running ? -7 * (1 - S.runT / 25) : 0;
     if (F.knocksensor) { if (S.running) setDTC(S, 'P0325'); base -= 5; }
     S.sparkBase = base;
-    for (let c = 0; c < 4; c++) S.sparkCyl[c] = clamp(base + S.sparkIdle + S.catHeat - S.knockRetard[c], -8, 45);
-    S.spark = (S.sparkCyl[0] + S.sparkCyl[1] + S.sparkCyl[2] + S.sparkCyl[3]) / 4;
+    for (let c = 0; c < nCyl; c++) S.sparkCyl[c] = clamp(base + S.sparkIdle + S.catHeat - S.knockRetard[c], -8, 45);
+    S.spark = S.sparkCyl.reduce((a, b) => a + b, 0) / nCyl;
     S.dwell = clamp(2.8 * Math.pow(14 / Math.max(S.vbat, 8), 1.2), 1.8, 6);
-    S.vvt = S.running ? clamp(Math.sin(clamp((sens.rpm - 1200) / 4200, 0, 1) * Math.PI) * 30 * clamp(loadN * 1.6, 0.2, 1), 0, 35) : 0;
+    S.vvt = S.running ? clamp(Math.sin(clamp((sens.rpm - 1200) / (E.redline > 7000 ? E.redline - 2600 : 4200), 0, 1) * Math.PI) * 30 * clamp(loadN * 1.6, 0.2, 1), 0, 35) : 0;
 
     // ---------- Misfire monitor ----------
     if (F.misfire3 && S.running && !S.injCut[2]) {
@@ -908,8 +1048,8 @@
   /* Crank-angle domain helpers used by the views */
 
   // local cylinder angle: 0 = firing TDC
-  ECU.localAngle = function (theta, c) {
-    return (((theta - ECU.CYL_OFFSET[c]) % 720) + 720) % 720;
+  ECU.localAngle = function (theta, c, off) {
+    return (((theta - (off || ECU.CYL_OFFSET)[c]) % 720) + 720) % 720;
   };
   ECU.strokeOf = function (local) {
     return (Math.floor(local / 180) | 0) & 3; // 0 power,1 exhaust,2 intake,3 compression

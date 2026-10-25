@@ -68,9 +68,9 @@
       case 'maf': {
         const v = F.maf ? 0 : S.mafTrue;
         r.value = f1(v); r.unit = 'g/s'; r.short = `${f1(v)} g/s`;
-        r.sig = F.maf ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.95 + 3.9 * Math.sqrt(v / 260))} V`;
+        r.sig = F.maf ? (ECU.hideTruth ? '0.00 V' : T('0.00 V (fault)')) : `${f2(0.95 + 3.9 * Math.sqrt(v / (S.E.mafFull || 260)))} V`;
         r.status = F.maf ? 'bad' : on ? 'ok' : 'off';
-        r.frac = v / (S.E.diesel ? 180 : S.E.turbo ? 230 : 130);
+        r.frac = v / (S.E.diesel ? 180 : S.E.turbo ? 230 : S.E.cyl === 12 ? 560 : 130);
         break;
       }
       case 'map': {
@@ -215,7 +215,7 @@
   };
   ICON.glow = '<svg viewBox="0 0 24 24"><path d="M4 10c0-1 1-2 2-1s1 3 2 3 1-4 2-4 1 4 2 4 1-4 2-4 1 4 2 4 1-2 2-3 2 0 2 1-1 5-3 5-2-2-3-2-1 2-2 2-1-2-2-2-1 2-2 2-2-4-3-5z"/></svg>';
   ICON.dpf = '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M3 8h18v8H3zM5 10v4h14v-4z"/><path d="M7 11h1v2H7zm3 0h1v2h-1zm3 0h1v2h-1zm3 0h1v2h-1z"/></svg>';
-  const P = ['na', 'turbo'], DSL = ['diesel'];
+  const P = ['na', 'turbo', 'v12'], DSL = ['diesel'];
   const LAMPS = [
     { id: 'mil', label: 'CHECK', icon: ICON.mil, c: '#ffb020', tip: 'Malfunction indicator (check engine). On with emissions faults, flashes for catalyst-damaging misfire.' },
     { id: 'oil', label: 'OIL', icon: ICON.oil, c: '#ff4d5e', tip: 'Oil pressure below ~0.4 bar.' },
@@ -371,7 +371,7 @@
       if (!ECU.appliesTo(a, this.app.S.type)) continue;
       const el = document.createElement('div');
       el.className = 'act';
-      el.innerHTML = `<div class="an"><span>${ECU.info('actuators', a, 'name')}</span><span class="dot"></span></div><div class="av">—</div><div class="abar"><i></i></div>`;
+      el.innerHTML = `<div class="an"><span>${actName(a)}</span><span class="dot"></span></div><div class="av">—</div><div class="abar"><i></i></div>`;
       el.addEventListener('click', () => this.openActuator(a.id));
       box.appendChild(el);
       this.actEls[a.id] = { el, v: el.querySelector('.av'), bar: el.querySelector('.abar i') };
@@ -450,12 +450,14 @@
     $('#keyRotor').style.transform = `rotate(${keyAng}deg)`;
     $('#keyHint').textContent = !S.ecuOn ? (S.key === 'ACC' ? T('ACC — accessories only, ECU off.') : T('Key OFF — ECU asleep.')) : S.cranking ? T('Cranking… starter engaged.') : S.running ? T('Engine running.') : S.primeT > 0 ? T('Bulb check + fuel pump prime…') : T('ECU on — ready to crank.');
     $('#speedVal').textContent = `${(S.v * 3.6).toFixed(0)} km/h`;
-    document.querySelectorAll('#gearSel button').forEach((b) => b.classList.toggle('active', +b.dataset.g === S.gear));
+    this.renderGears(S);
+    document.querySelectorAll('#gearSel button').forEach((b) => b.classList.toggle('active', b.dataset.sel ? b.dataset.sel === S.sel : +b.dataset.g === S.gear));
+    $('#gearInfo').textContent = this.gearInfo(S);
     $('#brakeBtn').classList.toggle('active', S.brake);
     this.setRange($('#pedal'), S.pedal);
     $('#pedalVal').textContent = `${S.pedal.toFixed(0)} %`;
     $('#tpPedal').textContent = `${S.pedal.toFixed(0)} %`;
-    $('#tpGear').textContent = S.gear === 0 ? 'N' : String(S.gear);
+    $('#tpGear').textContent = ECU.gearText(S);
     $('#tpStart').hidden = S.running || S.cranking;
 
     // sync pill
@@ -565,7 +567,7 @@
 
     let loadCalc;
     const ac = S.airCylMeas.toFixed(3);
-    if (S.loadSrc === 'MAF') loadCalc = T('MAF <b>{m} g/s</b> ÷ ({r} rpm ÷ 30) = <b>{a} g/cyl</b>', { m: S.sens.maf.toFixed(1), r: rpmS.toFixed(0), a: ac });
+    if (S.loadSrc === 'MAF') loadCalc = T('MAF <b>{m} g/s</b> ÷ ({r} rpm ÷ {d}) = <b>{a} g/cyl</b>', { m: S.sens.maf.toFixed(1), r: rpmS.toFixed(0), d: 120 / (S.E.cyl || 4), a: ac });
     else if (S.loadSrc.startsWith('MAP')) loadCalc = T('VE × MAP <b>{p} kPa</b> × V<sub>cyl</sub> ÷ (R·T<sub>IAT</sub>) = <b>{a} g/cyl</b>', { p: S.sens.map.toFixed(0), a: ac });
     else loadCalc = T('from throttle angle only ({t} %) = <b>{a} g/cyl</b>', { t: S.throttle.toFixed(0), a: ac });
     h.push(step('2 · How much air per cylinder?', `${T(S.loadSrc)} · ${T('load')} ${S.loadPct.toFixed(0)} %`, '', loadCalc, 'var(--air)'));
@@ -691,7 +693,7 @@
     if (!a) return;
     this.selected = { type: 'a', id, def: a };
     this.hist = [];
-    $('#drawerBody').innerHTML = `<h2>${ECU.info('actuators', a, 'name')}</h2><div class="tech">${T('ECU output')}</div>
+    $('#drawerBody').innerHTML = `<h2>${actName(a)}</h2><div class="tech">${T('ECU output')}</div>
       <div class="live"><div style="grid-column:span 2"><span class="lbl">${T('Now')}</span><span class="mono" id="dwVal" style="font-size:14px">—</span></div></div>
       <h4>${T('What it does')}</h4><p>${ECU.info('actuators', a, 'desc')}</p>`;
     this.openDrawer();
@@ -739,6 +741,40 @@
     ctx.fillText(T('last ~5 s (normalised)'), 8, 12);
   };
 
+  // ---------- gearbox ----------
+  // gear buttons depend on the gearbox: N 1–6 (manual) or N D (automatic)
+  UI.prototype.renderGears = function (S) {
+    const key = S.trans + ECU.carOf(S).top;
+    if (key === this.gearKey) return;
+    this.gearKey = key;
+    const el = $('#gearSel');
+    el.innerHTML = S.trans === 'auto'
+      ? '<button data-sel="N">N</button><button data-sel="D">D</button>'
+      : Array.from({ length: ECU.carOf(S).top + 1 }, (_, g) => `<button data-g="${g}">${g === 0 ? 'N' : g}</button>`).join('');
+    el.classList.toggle('auto', S.trans === 'auto');
+    document.querySelectorAll('#transSel button').forEach((b) => b.classList.toggle('active', b.dataset.trans === S.trans));
+  };
+  UI.prototype.gearInfo = function (S) {
+    if (S.trans === 'auto') {
+      if (S.sel !== 'D') return T('selector N');
+      return `${ECU.gearText(S)} · ` + (S.shiftT > 0 ? T('shifting') : S.lockCap > 0 && S.clutchLocked ? T('lock-up') : T('converter {r}×', { r: (S.tcRatio || 1).toFixed(2) }));
+    }
+    if (S.gear === 0) return T('neutral');
+    return S.shiftT > 0 || S.clutch === 0 ? T('clutch open') : S.clutchState === 'locked' ? T('clutch engaged') : T('clutch slipping {p} %', { p: Math.round(S.clutch * 100) });
+  };
+  UI.prototype.setSelector = function (sel) {
+    const S = this.app.S;
+    if (S.trans !== 'auto' || S.sel === sel) return;
+    S.sel = sel;
+    ECU.log(S, sel === 'D' ? 'Selector D: 1st gear engaged — the torque converter lets the car creep, so hold the brake.' : 'Selector N: gearbox in neutral.', 'info');
+  };
+  UI.prototype.setTrans = function (t) {
+    const S = this.app.S;
+    if (S.trans === t) return;
+    S.trans = t; S.gear = 0; S.prevGear = 0; S.sel = 'N'; S.clutch = 0; S.lockCap = 0;
+    ECU.log(S, t === 'auto' ? 'Gearbox: 8-speed automatic with torque converter. Select D to drive.' : 'Gearbox: 6-speed manual. The simulator works the clutch for you.', 'info');
+  };
+
   // ---------- controls ----------
   UI.prototype.bindControls = function () {
     const app = this.app;
@@ -778,7 +814,12 @@
     pedal.addEventListener('input', () => { app.pedalBase = +pedal.value; if (!app.wHeld) S().pedal = app.pedalBase; });
     document.querySelectorAll('#pedalChips button').forEach((b) => b.addEventListener('click', () => { app.pedalBase = +b.dataset.p; S().pedal = app.pedalBase; }));
 
-    document.querySelectorAll('#gearSel button').forEach((b) => b.addEventListener('click', () => { S().gear = +b.dataset.g; }));
+    $('#gearSel').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.sel) this.setSelector(b.dataset.sel); else S().gear = +b.dataset.g;
+    });
+    $('#transSel').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.setTrans(b.dataset.trans); });
     const brake = $('#brakeBtn');
     const bOn = (e) => { e.preventDefault(); S().brake = true; };
     const bOff = () => { S().brake = false; };
@@ -822,7 +863,7 @@
       const k = e.key.toLowerCase();
       if (k === 'w' || e.key === 'ArrowUp') { app.wHeld = true; e.preventDefault(); }
       else if (e.key === ' ') { S().brake = true; e.preventDefault(); }
-      else if (/^[0-5]$/.test(e.key)) S().gear = +e.key;
+      else if (/^[0-9]$/.test(e.key)) { if (S().trans === 'auto') this.setSelector(e.key === '0' ? 'N' : 'D'); else if (+e.key <= ECU.carOf(S()).top) S().gear = +e.key; }
       else if (k === 's') app.quickStart();
       else if (k === 'p') app.togglePause();
       else if (k === 'c') this.toggleControls();
@@ -894,7 +935,8 @@
     hold($('#tpBrake'), () => (app.S.brake = true), () => (app.S.brake = false));
     $('#tpStart').addEventListener('click', () => app.quickStart());
     document.querySelectorAll('[data-gstep]').forEach((b) => b.addEventListener('click', () => {
-      app.S.gear = Math.max(0, Math.min(5, app.S.gear + +b.dataset.gstep));
+      if (app.S.trans === 'auto') this.setSelector(+b.dataset.gstep > 0 ? 'D' : 'N');
+      else app.S.gear = Math.max(0, Math.min(ECU.carOf(app.S).top, app.S.gear + +b.dataset.gstep));
     }));
   };
 
@@ -909,10 +951,16 @@
     if (!initial) { try { localStorage.setItem('ecu-controls-collapsed', collapsed ? '1' : '0'); } catch (e) { /* ignore */ } }
   };
 
+  // "Fuel injectors ×4" → ×12 on the V12
+  function actName(a) {
+    return ECU.info('actuators', a, 'name').replace('×4', '×' + ECU.geom(window.app.S.E).n);
+  }
+
   function describeAngle(a) {
     const out = [];
-    for (let c = 0; c < 4; c++) {
-      if (ECU.localAngle(a, c) < 30) out.push(T('cyl {c} power start', { c: c + 1 }));
+    const G = ECU.geom(window.app.S.E);
+    for (let c = 0; c < G.n; c++) {
+      if (ECU.localAngle(a, c, G.off) < 30) out.push(T('cyl {c} power start', { c: c + 1 }));
     }
     const tooth = ECU.ckpTooth(a);
     out.push(tooth.missing ? T('CKP gap') : T('CKP tooth {n}', { n: tooth.idx + 1 }));

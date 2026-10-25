@@ -16,9 +16,10 @@
     ctx.clearRect(0, 0, w, H);
     const d = this.disp, k = 1 - Math.exp(-dt / 0.06);
     // needle sweep at key-on (sweep = 0..1..0, or -1 when inactive)
-    const rMax = S.E.diesel ? 6000 : 8000; // diesel tach reads to 6000 rpm
+    const rMax = S.E.diesel ? 6000 : S.E.redline > 8000 ? 10000 : 8000; // diesel tach reads to 6000 rpm, the V12 to 10 000
+    const vMax = S.E.redline > 8000 ? 360 : 240;
     d.rpm += ((sweep >= 0 ? sweep * rMax : S.rpm) - d.rpm) * k;
-    d.v += ((sweep >= 0 ? sweep * 240 : S.v * 3.6) - d.v) * k;
+    d.v += ((sweep >= 0 ? sweep * vMax : S.v * 3.6) - d.v) * k;
     d.map += (S.map - d.map) * k;
     const E = S.E;
 
@@ -29,8 +30,8 @@
       major: rMax / 1000 + 1, minor: 4, labels: (i) => String(i), red: E.redline / rMax, unit: T('×1000 rpm'),
       big: Math.round(d.rpm / 10) * 10, bigUnit: 'rpm', col: C.accent, lit: S.ecuOn,
     });
-    this.gauge(ctx, speedX, gy, R, d.v / 240, {
-      major: 7, minor: 4, labels: (i) => String(i * 40), unit: 'km/h', big: Math.round(d.v), bigUnit: 'km/h', col: C.info, lit: S.ecuOn,
+    this.gauge(ctx, speedX, gy, R, d.v / vMax, {
+      major: 7, minor: 4, labels: (i) => String(i * (vMax / 6)), unit: 'km/h', big: Math.round(d.v), bigUnit: 'km/h', col: C.info, lit: S.ecuOn,
     });
 
     // center gauge: manifold pressure / boost
@@ -50,7 +51,7 @@
     // digital strip
     const sy = narrow ? 216 : 178;
     const items = [
-      [T('GEAR'), S.gear === 0 ? 'N' : String(S.gear), C.text],
+      [T('GEAR'), ECU.gearText(S), C.text],
       ['λ', S.rpm > 300 && S.lambda < 5 ? S.lambda.toFixed(2) : '—', S.lambda < 0.95 ? C.fuel : S.lambda > 1.05 ? C.air : C.ok],
       [T('TORQUE'), `${Math.max(0, S.torque).toFixed(0)} Nm`, C.text],
       [T('POWER'), `${(S.power * 1.341).toFixed(0)} ${T('hp')}`, C.text],

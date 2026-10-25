@@ -1,6 +1,6 @@
 # ECU Simulator
 
-An interactive, animated engine-management simulator that shows what every sensor reads and what the ECU does with it, crank degree by crank degree. You can switch between a naturally aspirated petrol, a turbocharged petrol and a 2.0 TDI-style common-rail diesel, all 2.0 L inline-fours.
+An interactive, animated engine-management simulator that shows what every sensor reads and what the ECU does with it, crank degree by crank degree. You can switch between four engines: a naturally aspirated petrol, a turbocharged petrol and a 2.0 TDI-style common-rail diesel (all 2.0 L inline-fours), and a 6.5 L naturally aspirated V12.
 
 Open `index.html` in a browser. There is no build step and nothing to install. You can also serve the folder, e.g. `python3 -m http.server`.
 
@@ -28,6 +28,18 @@ Pick **Diesel** in the top bar. The diesel has no throttle for torque: the pedal
 - **DOC/DPF**: soot loading estimated from differential pressure and a model, and active regeneration with post-injection to about 620 °C. An overloaded filter sets P2463 and limp mode.
 
 Diesel faults: glow plug circuit, EGR stuck open or closed, clogged DPF, leaking injector (rail pressure) and stuck VGT. Two extra lessons (diesel start, DPF regeneration) and diesel challenge cases are included, along with diesel OBD PIDs and monitors, calibration maps (quantity, injection timing, boost) and a diesel engine sound. The code is in `js/diesel.js`.
+
+## V12 and gearboxes
+
+**V12** is a 6.5 L naturally aspirated 65° V12 that revs to 9200 rpm. It has 13.6:1 compression and twin throttle bodies, and fires every 60° of crank in the order 1-7-5-11-3-9-6-12-2-8-4-10. It makes about 650 Nm and 540 kW (725 hp). Every view follows the cylinder count:
+- the engine view draws both banks
+- the timing scope gets 12 injector and 12 coil rows
+- sound fires at rpm ÷ 10, with an added high-rev howl
+- the oscilloscope can probe any of the 12 cylinders
+
+**Gearbox** (all engines): choose a **6-speed manual** or an **8-speed automatic**.
+- **Manual:** the simulator works the clutch for you. It bites with the revs when pulling away, lifts off and opens the clutch for each shift, and opens it before the engine stalls.
+- **Automatic:** select N or D. It has a torque converter (it creeps, and multiplies torque up to 2× at stall), a shift schedule that follows the pedal, kickdown, and a lock-up clutch when cruising. During each shift the gearbox asks the ECU to cut torque.
 
 ## Phones
 
@@ -103,7 +115,7 @@ Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % 
 Ideas not built yet:
 
 - **Data logger:** record a drive, replay it and export CSV.
-- **More petrol variants:** direct injection with a high-pressure pump, EVAP purge, wideband upstream O2, V6 with two banks.
+- **More petrol variants:** direct injection with a high-pressure pump, EVAP purge, wideband upstream O2, per-bank fuel trims for the V12.
 
 ## Tests
 

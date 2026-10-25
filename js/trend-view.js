@@ -27,6 +27,7 @@
       6: { title: 'Injection', series: [{ k: 'q', name: 'main mg', col: C.fuel, min: 0, max: 70, fmt: (v) => v.toFixed(1) }, { k: 'post', name: 'post mg', col: C.cam, min: 0, max: 70, fmt: (v) => v.toFixed(1) }] },
       7: { title: 'Temperatures', series: [{ k: 'ect', name: 'ECT °C', col: C.info, min: -20, max: 130, fmt: (v) => v.toFixed(0) }, { k: 'egt', name: 'EGT/10', col: C.hot, min: -20, max: 130, fmt: (v) => (v * 10).toFixed(0) }, { k: 'dpfT', name: 'DPF/10', col: C.cam, min: -20, max: 130, fmt: (v) => (v * 10).toFixed(0) }] },
     };
+    this.v12Charts = { 0: { title: 'Engine speed', series: [{ k: 'rpm', name: 'rpm', col: C.accent, min: 0, max: 10000, fmt: (v) => v.toFixed(0) }, { k: 'kmh', name: 'km/h', col: C.info, min: 0, max: 360, fmt: (v) => v.toFixed(0) }] } };
     this.turboCharts = { 1: { title: 'Load & boost', series: [{ k: 'map', name: 'MAP kPa', col: C.air, min: 0, max: 250, fmt: (v) => v.toFixed(0) }, { k: 'btgt', name: 'target', col: C.hot, min: 0, max: 250, dash: true, fmt: (v) => v.toFixed(0) }, { k: 'wg', name: 'WG %', col: C.muted, min: 0, max: 250 / 100 * 100, scale: 2.5, fmt: (v) => (v / 2.5).toFixed(0) }] } };
   }
 
@@ -34,7 +35,6 @@
     this.acc += dt;
     while (this.acc >= DT) {
       this.acc -= DT;
-      const kr = (S.knockRetard[0] + S.knockRetard[1] + S.knockRetard[2] + S.knockRetard[3]) / 4;
       this.buf.push({
         rpm: S.rpm, kmh: S.v * 3.6, map: S.map, thr: S.throttle, o2: S.o2v, o2dn: S.o2dn,
         lam: S.rpm > 300 ? Math.min(S.lambda, 1.4) : NaN, lamT: S.running ? S.lambdaTarget : NaN,
@@ -58,7 +58,7 @@
     ctx.clearRect(0, 0, w, H);
     const cw = (w - (cols - 1) * 10) / cols;
     this.charts.forEach((chart0, i) => {
-      const chart = (S.E.diesel && this.dieselCharts[i]) || (S.E.turbo && this.turboCharts[i]) || chart0;
+      const chart = (S.E.diesel && this.dieselCharts[i]) || (S.E.turbo && this.turboCharts[i]) || (S.E.cyl === 12 && this.v12Charts[i]) || chart0;
       const x = (i % cols) * (cw + 10), y = Math.floor(i / cols) * (ch + 10);
       this.chart(ctx, x, y, cw, ch, chart);
     });

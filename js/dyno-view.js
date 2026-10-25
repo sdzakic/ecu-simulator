@@ -8,7 +8,7 @@
 
   const COLORS = ['#2ee6c5', '#ff9f43', '#62a8ff', '#ff6b8a', '#b98cff', '#ffe45c'];
   const MAX_RUNS = 6;
-  const X0 = 1000, X1 = 7000;
+  const X0 = 1000;
   const VIEWS = {
     power: { label: 'Torque & power' },
     boost: { label: 'Boost', key: 'boost', unit: 'bar', scale: 0.01, fmt: (v) => v.toFixed(2) },
@@ -39,7 +39,7 @@
   };
 
   DynoView.prototype.label = function (r) {
-    const parts = [r.type === 'turbo' ? T('Turbo') : r.type === 'diesel' ? T('Diesel') : T('NA')];
+    const parts = [r.type === 'turbo' ? T('Turbo') : r.type === 'diesel' ? T('Diesel') : r.type === 'v12' ? 'V12' : T('NA')];
     if (r.type !== 'diesel') parts.push(`${r.octane} RON`);
     if (r.type === 'turbo') parts.push(T('boost ×{b}', { b: r.boost.toFixed(2) }));
     parts.push(r.mapsMod ? T('modified maps') : T('stock maps'));
@@ -111,9 +111,11 @@
     ctx.clearRect(0, 0, w, H);
     const L = small ? 40 : 52, R = this.view === 'power' ? (small ? 40 : 52) : 16, Tp = 14, B = 34;
     const pw = w - L - R, ph = H - Tp - B;
-    const xOf = (rpm) => L + ((rpm - X0) / (X1 - X0)) * pw;
     const live = S.dyno && (S.dyno.phase === 'pull' || S.dyno.phase === 'settle') ? S.dyno : null;
     const shown = this.runs.filter((r) => r.visible);
+    // rpm axis reaches the highest redline on screen (the V12 revs to 9200)
+    const X1 = Math.max(7000, ...[S.type, ...shown.map((r) => r.type)].map((t) => Math.ceil(((ECU.ENGINES[t] || {}).redline || 0) / 1000) * 1000));
+    const xOf = (rpm) => L + ((rpm - X0) / (X1 - X0)) * pw;
     const series = shown.map((r) => ({ color: r.color, samples: r.samples }));
     if (live) series.push({ color: '#ffffff', samples: live.samples, live: true });
     const powK = this.units === 'hp' ? 1.341 : 1;

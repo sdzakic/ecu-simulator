@@ -21,15 +21,21 @@
       if (this.diagram) this.diagram = new ECU.DiagramView(document.querySelector('#diagramWrap'), (id) => this.ui.openSensor(id));
       ECU.log(this.S, 'Engine swapped: {label}. {detail}', 'info', {
         label: { k: this.S.E.label },
-        detail: { k: type === 'diesel' ? 'Compression ignition at 16.5:1, common rail up to 1800 bar, VGT turbo, EGR and a particulate filter. Torque is set by fuel quantity — there is no throttling.' : type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.' },
+        detail: { k: type === 'v12' ? 'Twelve cylinders in two banks at 65°, one firing every 60° of crank, 13.6:1 compression, twin throttle bodies and a 9200 rpm limit.' : type === 'diesel' ? 'Compression ignition at 16.5:1, common rail up to 1800 bar, VGT turbo, EGR and a particulate filter. Torque is set by fuel quantity — there is no throttling.' : type === 'turbo' ? 'Lower compression (9.6:1), bigger injectors (440 cc), turbo + intercooler, wastegate & blow-off valve.' : 'Higher compression (11:1), 240 cc injectors, no boost — MAP never exceeds atmospheric.' },
       });
       this.pedalBase = 0;
       document.querySelectorAll('#acBtn,#lightsBtn').forEach((b) => b.classList.toggle('on', !!this.S[b.id === 'acBtn' ? 'ac' : 'lights']));
     },
     applyEngineClasses(type) {
       // is-turbo: has a turbocharger (petrol turbo and diesel); is-diesel: compression ignition
-      document.body.classList.toggle('is-turbo', type !== 'na');
+      document.body.classList.toggle('is-turbo', type === 'turbo' || type === 'diesel');
       document.body.classList.toggle('is-diesel', type === 'diesel');
+      document.body.classList.toggle('is-v12', type === 'v12');
+      this.engineSub();
+    },
+    engineSub() {
+      const G = ECU.geom(ECU.ENGINES[this.S.type]);
+      $('#engineSub').textContent = ECU.t(G.n > 4 ? 'firing order {o} · bank A on top, bank B below' : 'firing order {o} · each cylinder cut open', { o: G.order.join('-') });
     },
     // language switched: views that bake text into DOM/SVG get rebuilt
     relabel() {
@@ -37,6 +43,7 @@
       this.diagram = new ECU.DiagramView($('#diagramWrap'), (id) => this.ui.openSensor(id));
       if (sel && sel.type === 's') this.diagram.select(sel.id);
       $('#pauseBtn span').textContent = ECU.t(this.paused ? 'Resume' : 'Pause');
+      this.engineSub();
       this.ui.renderBrain(this.S);
       this.maps.relabel();
       this.dyno.relabel();

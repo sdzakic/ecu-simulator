@@ -243,6 +243,7 @@ body.is-diesel .petrol-only { display: none !important; }
 body.is-turbo:not(.is-diesel) .pturbo-only { display: revert !important; }
 body.is-turbo:not(.is-diesel) .ctl.pturbo-only { display: block !important; }
 body.is-diesel .diag .diesel-only, body.is-turbo:not(.is-diesel) .diag .pturbo-only { display: inline !important; }
+.engine-seg button[data-engine="v12"].active { box-shadow: inset 0 0 0 1px rgba(255, 77, 94, .6), 0 0 18px rgba(255, 77, 94, .2); }
 .engine-seg button[data-engine="diesel"].active { box-shadow: inset 0 0 0 1px rgba(185, 140, 255, .55), 0 0 18px rgba(185, 140, 255, .18); }
 body.is-turbo .turbo-only { display: revert !important; }
 body.is-turbo .ctl.turbo-only { display: block !important; }
@@ -664,3 +665,5 @@ body.sound-on #soundVol { width: 74px; opacity: 1; }
 .ts-tb b { min-width: 86px; text-align: center; }
 .ts-help { font-size: 11.5px; color: #c6d3e2; line-height: 1.5; max-height: 260px; overflow-y: auto; }
 .ts-help p { margin: 0 0 8px; }
+#transSel { margin-bottom: 8px; }
+.seg.gears.auto button { font-size: 15px; }

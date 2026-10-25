@@ -18,6 +18,7 @@
     app.selectEngine(type);
     const S = app.S;
     if (hot) { S.ect = 88; S.oilT = 90; }
+    S.trans = 'manual'; S.sel = 'N'; S.gear = 0; // lessons pick gears themselves
     S.octane = octane;
     app.pedalBase = 0;
     app.setSpeed('auto');

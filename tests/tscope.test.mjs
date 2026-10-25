@@ -105,7 +105,8 @@ test('knock events show up as a ringing burst on the knock sensor', () => {
   S.gear = 3; S.pedal = 100; S.v = 15;
   const cap = capture(S, 4);
   assert.ok(cap.events.length > 0, 'knock captured');
-  const e = cap.events[cap.events.length - 1];
+  const [, tNow] = cap.span();
+  const e = cap.events.filter((x) => x.t + 0.0012 < tNow).pop(); // a burst that is fully captured
   const p = new TS.Probe(cap);
   const peak = (a, b) => { let m = 0; for (let t = a; t < b; t += 5e-6) m = Math.max(m, Math.abs(p.value('knock', 0, t))); return m; };
   const ring = peak(e.t, e.t + 0.001), before = peak(e.t - 0.0025, e.t - 0.0015);
