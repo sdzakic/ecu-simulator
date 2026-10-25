@@ -63,6 +63,18 @@ What a workshop scan tool reads over the diagnostic port, modelled on SAE J1979.
 
 A CAN traffic log shows every request and response. In the diagnostic challenge the tool respects the difficulty: codes are locked on hard and cost points on medium.
 
+## Oscilloscope
+
+The **Oscilloscope** panel is a time-based scope, like a workshop Picoscope, next to the 720° timing view. Probe any two signals at the sensor or actuator pin:
+- crank and cam sensors
+- an injector or ignition coil on any cylinder
+- knock sensor, both O2 sensors, MAF, MAP, both throttle tracks
+- rail pressure (diesel) and battery voltage
+
+The timebase runs from 100 µs/div to 1 s/div. You get rising or falling edge triggering with Auto, Normal and Single modes, automatic or fixed volts per division, two time cursors and automatic measurements: max, min, frequency, rpm from the crank or cam signal, injection time and dwell. The slow timebases scroll in roll mode. Presets set up the classic tests: crank vs cam, injector waveform, coils 1 and 3, a spark close-up, the O2 sensors for a catalyst check, a throttle snap and the cranking battery.
+
+Physics steps at 240 Hz, far too slow for crank teeth or a coil's 400 V flyback, so each step is captured (crank angle, rpm, what the ECU commanded) and the waveforms are rebuilt from the crank angle between steps. Faults show up as they would on a real scope; a dead coil, for example, rings with no burn line. That makes the scope useful in the diagnostic challenge too.
+
 ## Calibration maps
 
 The ECU runs on real lookup tables: **spark advance** and **target λ** (rpm × load), plus **boost target** (rpm × pedal) on the turbo. A white dot tracks the live operating point, and the four cells it interpolates between light up. Drag across cells to select them, then edit with the buttons or the keyboard (+/−, PgUp/PgDn, arrows, Delete). Edits take effect immediately and are saved per engine in the browser. Lessons always run on the stock maps.
@@ -90,7 +102,6 @@ Physics runs in real time. The crank-angle views run in slow motion (Auto / 1 % 
 
 Ideas not built yet:
 
-- **Time-based oscilloscope:** probe any two signals on a millisecond axis, like a Picoscope.
 - **Data logger:** record a drive, replay it and export CSV.
 - **More petrol variants:** direct injection with a high-pressure pump, EVAP purge, wideband upstream O2, V6 with two banks.
 

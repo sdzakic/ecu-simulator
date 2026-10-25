@@ -14,7 +14,7 @@ const missing = new Map();
 const note = (key, where) => { if (key && !(key in HR)) missing.set(key, where); };
 
 // 1) explicit keys: T('..'), ECU.t('..'), log(.., '..'), edge(.., '..'), { k: '..' }, step('..')
-const files = ['sim.js', 'diesel.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js', 'obd.js'];
+const files = ['sim.js', 'diesel.js', 'main.js', 'ui.js', 'engine-view.js', 'wheel-view.js', 'scope-view.js', 'cluster-view.js', 'trend-view.js', 'diagram-view.js', 'maps-view.js', 'dyno-view.js', 'lessons.js', 'challenge.js', 'sound.js', 'obd.js', 'tscope.js'];
 const str = `'((?:[^'\\\\]|\\\\.)*)'|"((?:[^"\\\\]|\\\\.)*)"`;
 const patterns = [
   new RegExp(`\\bT\\(\\s*(?:${str})`, 'g'),
@@ -67,6 +67,10 @@ for (const [id, c] of Object.entries(E.CHALLENGE.CASES)) {
 }
 for (const [id, d] of Object.entries(E.CHALLENGE.DIFFS)) for (const k of ['title', 'desc']) if (!d[k].en || !d[k].hr) missing.set(`difficulty ${id} ${k}`, 'challenge.js');
 
+// 2d) oscilloscope signal explanations carry {en, hr} texts
+load('js/tscope.js');
+for (const [id, d] of Object.entries(E.TSCOPE.SIGNALS)) for (const o of [d.desc, d.descD].filter(Boolean)) if (!o.en || !o.hr) missing.set(`scope signal ${id} desc`, 'tscope.js');
+
 // 3) static HTML
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 for (const m of html.matchAll(/<(\w+)[^>]*\sdata-i18n(?:-html)?(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g)) {
@@ -77,7 +81,7 @@ for (const m of html.matchAll(/data-i18n-title[^>]*?title="([^"]*)"/g)) note(m[1
 
 // identifiers that the patterns pick up but are never shown: log kinds, edge() flags, series keys
 const ids = 'ok info warn fault running dfco rev onboost injmax misfire kmh map thr o2 o2dn lam lamT stft ltft spk kr pw duty ect iat egt btgt wg dsmoke egr nox soot lamD mafD rail q dpfT'.split(' ');
-const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge', '44', '49 02 01 ', '2.0 TDI', 'DPF', 'NOx ppm']);
+const ignore = new Set([...ids, '2.0 NA', '2.0 Turbo', '', 'MAF', 'EPC', 'DFCO', 'ACC', 'CKP', 'CMP', 'rpm', 'km/h', 'MAP kPa', 'STFT %', 'LTFT %', 'ECT °C', 'IAT °C', 'EGT/10', 'SYNC', 'Auto', 'WG %', 'A/C', 'Guided lessons', 'λ', 'Diagnostic challenge', '44', '49 02 01 ', '2.0 TDI', 'DPF', 'NOx ppm', 'auto']);
 const list = [...missing].filter(([k]) => !ignore.has(k));
 if (!list.length) console.log('✓ all translation keys covered');
 else { console.log(`${list.length} missing:`); list.forEach(([k, w]) => console.log(`  [${w}] ${k}`)); process.exitCode = 1; }

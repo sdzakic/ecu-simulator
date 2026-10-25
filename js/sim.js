@@ -17,6 +17,8 @@
   // index = cylinder-1 ; value = crank angle of its firing TDC
   ECU.CYL_OFFSET = [0, 540, 180, 360];
   ECU.FIRING_ORDER = [1, 3, 4, 2];
+  // per-engine cylinder geometry (the V12 brings its own offsets and firing order)
+  ECU.geom = (E) => ({ n: E.cyl || 4, off: E.cylOffset || ECU.CYL_OFFSET, order: E.firingOrder || ECU.FIRING_ORDER });
 
   const ENGINES = {
     na: {

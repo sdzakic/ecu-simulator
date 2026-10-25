@@ -118,6 +118,7 @@
   app.challenge = new ECU.ChallengeUI(app);
   app.sound = new ECU.SoundUI(app);
   app.scan = new ECU.ScanToolUI(app);
+  app.tscope = new ECU.TScopeUI(app);
   ECU.log(app.S, 'Welcome! Press ⚡ Start engine (or S), or turn the key yourself. Click any sensor to learn what it does.', 'ok');
 
   let last = performance.now();
@@ -133,7 +134,7 @@
 
     if (!app.paused && dt > 0) {
       const n = Math.max(1, Math.round(dt / PHYS_DT));
-      for (let i = 0; i < n; i++) ECU.step(S, dt / n);
+      for (let i = 0; i < n; i++) { ECU.step(S, dt / n); app.tscope.cap.push(S); }
     }
 
     // visual crank angle (slow motion)
@@ -158,6 +159,7 @@
     app.challenge.tick();
     app.sound.update(S);
     app.scan.render(S);
+    app.tscope.render(S);
 
     tTrend += dt; tUi += dt; tBrain += dt; tDiag += dt; tNow += dt;
     if (tTrend > 0.05) { tTrend = 0; app.trends.render(S); }
